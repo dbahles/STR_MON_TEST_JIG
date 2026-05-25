@@ -1,0 +1,19 @@
+#pragma once
+
+enum class TestId
+{
+    POWER_TEST,
+    ALARM_TEST,
+    FAULT_RELAY_TEST
+};
+
+enum class TestResult
+{
+    PASS,
+    FAIL,
+    ERROR,
+    TIMEOUT
+};
+
+const char *testIdToString(TestId testId);
+const char *testResultToString(TestResult result);
