@@ -61,3 +61,19 @@ Result:
 - Flesh out ADC voltage measurement and calibration storage.
 - Flesh out relay output control and fault relay contact verification.
 - Add serial command handling once the basic hardware workflow is confirmed.
+
+## 2026-05-26
+
+### Added Serial Debug Interface
+
+- Added firmware version reporting in the boot banner.
+- Added detailed state transition logging.
+- Added case-insensitive serial commands:
+  - `T` starts the test sequence.
+  - `R` resets to `IDLE`.
+  - `S` prints system status.
+  - `H` prints help.
+  - `P` forces `PASS`.
+  - `F` forces `FAIL`.
+- Serial-triggered PASS/FAIL results are held until `R` so testing can be done without hardware fitted.
+- Confirmed serial command support is intended for development mode.

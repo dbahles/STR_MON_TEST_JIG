@@ -2,11 +2,9 @@
 
 enum class SystemState
 {
-    BOOT,
-    SELF_TEST,
     IDLE,
-    WAIT_FOR_START,
-    RUN_TESTS,
+    READY,
+    TEST_RUNNING,
     PASS,
     FAIL,
     ERROR_STATE

@@ -36,38 +36,40 @@ namespace LedManager
         writeLed(PIN_LED_FAIL, isOn);
     }
 
+    void setIndicators(bool readyOn, bool passOn, bool failOn)
+    {
+        setReady(readyOn);
+        setPass(passOn);
+        setFail(failOn);
+    }
+
     void showIdle()
     {
-        setReady(true);
-        setPass(false);
-        setFail(false);
+        setIndicators(false, false, false);
+    }
+
+    void showReady()
+    {
+        setIndicators(true, false, false);
     }
 
     void showRunning()
     {
-        setReady(false);
-        setPass(false);
-        setFail(false);
+        setIndicators(false, false, false);
     }
 
     void showPass()
     {
-        setReady(false);
-        setPass(true);
-        setFail(false);
+        setIndicators(false, true, false);
     }
 
     void showFail()
     {
-        setReady(false);
-        setPass(false);
-        setFail(true);
+        setIndicators(false, false, true);
     }
 
     void showError()
     {
-        setReady(true);
-        setPass(false);
-        setFail(true);
+        setIndicators(true, false, true);
     }
 }

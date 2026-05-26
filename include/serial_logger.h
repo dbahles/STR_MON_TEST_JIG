@@ -1,6 +1,7 @@
 #pragma once
 
 #include <Arduino.h>
+#include "system_state.h"
 #include "test_defs.h"
 
 namespace SerialLogger
@@ -9,5 +10,6 @@ namespace SerialLogger
     void printBootBanner();
     void info(const char *message);
     void error(const char *message);
+    void stateChange(SystemState fromState, SystemState toState, const char *reason);
     void testResult(TestId testId, TestResult result);
 }

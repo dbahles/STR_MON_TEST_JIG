@@ -4,16 +4,12 @@ const char *systemStateToString(SystemState state)
 {
     switch (state)
     {
-    case SystemState::BOOT:
-        return "BOOT";
-    case SystemState::SELF_TEST:
-        return "SELF_TEST";
     case SystemState::IDLE:
         return "IDLE";
-    case SystemState::WAIT_FOR_START:
-        return "WAIT_FOR_START";
-    case SystemState::RUN_TESTS:
-        return "RUN_TESTS";
+    case SystemState::READY:
+        return "READY";
+    case SystemState::TEST_RUNNING:
+        return "TEST_RUNNING";
     case SystemState::PASS:
         return "PASS";
     case SystemState::FAIL:
