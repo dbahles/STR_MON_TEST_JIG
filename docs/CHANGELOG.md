@@ -14,6 +14,8 @@
 - Added alarm positive and alarm negative automated tests with averaged GPIO39 ADC voltage checks and fault relay stability checks.
 - Added serial `L` command to list the automated test sequence in run order.
 - Changed TEST pushbutton handling so tests start only on a fresh debounced press, preventing auto-start after reset if the input is already LOW.
+- Added baseline DUT power test using averaged GPIO36 ADC readings and provisional voltage scaling.
+- Added hardware validation checklist and marked firmware ready for first hardware validation.
 - Added READY, TEST_RUNNING, PASS, and FAIL workflow.
 - Added buzzer helper and short insertion confirmation beep.
 - Updated indicator handling so IDLE turns all status LEDs off.

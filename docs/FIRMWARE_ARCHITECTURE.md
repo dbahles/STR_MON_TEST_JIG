@@ -63,7 +63,7 @@ When TEST is pressed:
 - The state changes to `TEST_RUNNING`.
 - `runTests()` is called.
 - The current implementation delegates to `TestManager::runAllTests()`.
-- The automated sequence now includes alarm positive, alarm negative, open-circuit, and short-circuit checks.
+- The automated sequence now includes baseline power, alarm positive, alarm negative, open-circuit, and short-circuit checks.
 
 After testing:
 
@@ -93,6 +93,30 @@ In development mode, serial commands work regardless of the physical DUT inputs.
 | `F` | Force the `FAIL` state for debug. |
 
 Serial-triggered test results and forced PASS/FAIL states are held on the indicators until `R` is sent. This allows bench testing with no DUT fitted. Physical button-triggered test results still clear when DUT removal is detected.
+
+## Baseline Power Test
+
+The first automated test is the baseline DUT power check.
+
+Power test sequence:
+
+1. Read `PIN_PWR_SENSE` / GPIO36 using averaged ADC samples.
+2. Convert the ADC reading to an estimated DUT voltage.
+3. Confirm the voltage is between `DUT_MIN_VOLTAGE` and `DUT_MAX_VOLTAGE`.
+4. Log the measured voltage.
+5. Return `PASS` only if the voltage is in range.
+
+Current configurable values:
+
+| Setting | Current value |
+| --- | ---: |
+| `DUT_MIN_VOLTAGE` | 22.0 V |
+| `DUT_MAX_VOLTAGE` | 28.0 V |
+| `ADC_SAMPLE_COUNT` | 10 samples |
+| `ADC_REFERENCE_VOLTAGE` | 3.3 V |
+| `DUT_POWER_ADC_SCALE` | 11.0 |
+
+`DUT_POWER_ADC_SCALE` is a provisional voltage-divider scale factor. It must be checked and calibrated when final hardware is available.
 
 ## Automated Open And Short Tests
 
@@ -168,7 +192,7 @@ Example serial output:
 ```text
 ================================
  STR-MON Automated Test Jig
- Firmware version: 0.4.0
+ Firmware version: 0.5.0
  Simulation mode: ON
  Development mode: ON
  Serial baud: 115200
@@ -178,6 +202,8 @@ Example serial output:
 Command received: T
 [8020 ms] STATE: IDLE -> TEST_RUNNING | Serial command T
 [8021 ms] INFO: Starting automated test sequence
+[8022 ms] INFO: Power baseline test started
+DUT Power Voltage = 24.00 V
 [8272 ms] TEST: Power Test -> PASS
 [8523 ms] INFO: Alarm Positive Test Started
 Initial fault relay state: NC=LOW NO=HIGH

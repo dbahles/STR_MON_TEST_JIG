@@ -129,6 +129,20 @@ namespace
         Serial.print(voltage, 2);
         Serial.println(" V");
     }
+
+    bool isDutVoltageValid(float voltage)
+    {
+        return !isnan(voltage) &&
+               voltage >= DUT_MIN_VOLTAGE &&
+               voltage <= DUT_MAX_VOLTAGE;
+    }
+
+    void logDutVoltage(float voltage)
+    {
+        Serial.print("DUT Power Voltage = ");
+        Serial.print(voltage, 2);
+        Serial.println(" V");
+    }
 }
 
 void TestManager::begin()
@@ -298,13 +312,18 @@ TestResult TestManager::runFaultSimulationTest(
 
 TestResult TestManager::runPowerTest()
 {
-#if SIMULATION_MODE
-    delay(250);
+    SerialLogger::info("Power baseline test started");
+
+    const float dutVoltage = AdcManager::readDutVoltage();
+    logDutVoltage(dutVoltage);
+
+    if (!isDutVoltageValid(dutVoltage))
+    {
+        SerialLogger::error("DUT power voltage out of range");
+        return TestResult::FAIL;
+    }
+
     return TestResult::PASS;
-#else
-    // Future: read DUT power using ADC manager.
-    return TestResult::ERROR;
-#endif
 }
 
 TestResult TestManager::runAlarmPositiveTest()

@@ -104,3 +104,13 @@ Result:
 - Updated TEST pushbutton handling to require a fresh debounced press event.
 - A button/input already LOW during reset will not start a test until it is released and pressed again.
 - Serial command `T` still starts the test sequence immediately in development mode.
+
+## 2026-05-27
+
+### Ready For Hardware Validation
+
+- Added real baseline power test using `PIN_PWR_SENSE` / GPIO36.
+- Power test averages ADC samples and applies a provisional voltage-divider scale factor.
+- Simulation mode returns 24.0 V for the power test.
+- Added `docs/HARDWARE_VALIDATION_CHECKLIST.md` for first hardware bring-up.
+- Current firmware is ready for hardware validation, with ADC scale and thresholds expected to need calibration.

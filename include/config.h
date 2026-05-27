@@ -3,7 +3,7 @@
 // Project-wide configuration values.
 
 #define SERIAL_BAUDRATE 115200
-#define FIRMWARE_VERSION "0.4.0"
+#define FIRMWARE_VERSION "0.5.0"
 
 // Set to 0 when real hardware test inputs are implemented.
 #define SIMULATION_MODE 1
@@ -13,6 +13,11 @@
 
 #define DUT_MIN_VOLTAGE 22.0f
 #define DUT_MAX_VOLTAGE 28.0f
+
+// ADC conversion values. These are calibration placeholders until final hardware is measured.
+#define ADC_REFERENCE_VOLTAGE 3.3f
+#define ADC_MAX_READING 4095.0f
+#define DUT_POWER_ADC_SCALE 11.0f
 
 #define ADC_SAMPLE_COUNT 10
 
