@@ -62,6 +62,7 @@ When TEST is pressed:
 - The state changes to `TEST_RUNNING`.
 - `runTests()` is called.
 - The current implementation delegates to `TestManager::runAllTests()`.
+- The automated sequence now includes open-circuit and short-circuit relay response checks.
 
 After testing:
 
@@ -91,12 +92,38 @@ In development mode, serial commands work regardless of the physical DUT inputs.
 
 Serial-triggered test results and forced PASS/FAIL states are held on the indicators until `R` is sent. This allows bench testing with no DUT fitted. Physical button-triggered test results still clear when DUT removal is detected.
 
+## Automated Open And Short Tests
+
+The open-circuit and short-circuit tests live in `TestManager`.
+
+Open-circuit test:
+
+1. Read the original fault relay input state from `PIN_FLT_NO` and `PIN_FLT_NC`.
+2. Set `PIN_EOL_OC_TEST` / GPIO26 HIGH.
+3. Poll the relay inputs until either input changes from the original state.
+4. Fail with `TIMEOUT` if no relay transition is detected within 2 seconds.
+5. Set GPIO26 LOW.
+6. Poll until the relay inputs return to the original state.
+7. Return `PASS` only if both the transition and restore checks succeed.
+
+Short-circuit test:
+
+1. Read the original fault relay input state from `PIN_FLT_NO` and `PIN_FLT_NC`.
+2. Set `PIN_EOL_SC_TEST` / GPIO27 HIGH.
+3. Poll the relay inputs until either input changes from the original state.
+4. Fail with `TIMEOUT` if no relay transition is detected within 2 seconds.
+5. Set GPIO27 LOW.
+6. Poll until the relay inputs return to the original state.
+7. Return `PASS` only if both the transition and restore checks succeed.
+
+The polling loop uses short 10 ms waits between input reads. This keeps the code easy to follow while avoiding long fixed delays.
+
 Example serial output:
 
 ```text
 ================================
  STR-MON Automated Test Jig
- Firmware version: 0.2.0
+ Firmware version: 0.3.0
  Simulation mode: ON
  Development mode: ON
  Serial baud: 115200
@@ -108,9 +135,23 @@ Command received: T
 [8021 ms] INFO: Starting automated test sequence
 [8272 ms] TEST: Power Test -> PASS
 [8523 ms] TEST: Alarm Test -> PASS
-[8774 ms] TEST: Fault Relay Test -> PASS
-[8775 ms] INFO: Automated test sequence complete
-[8776 ms] STATE: TEST_RUNNING -> PASS | Automated test sequence passed
+[8524 ms] INFO: Starting open circuit test
+Original fault relay state: NC=LOW NO=HIGH
+[8525 ms] INFO: Setting IO26 HIGH to simulate open circuit fault
+Fault relay changed: NC=HIGH NO=LOW
+[8640 ms] INFO: Setting IO26 LOW and checking relay restore
+Fault relay restored: NC=LOW NO=HIGH
+[8650 ms] TEST: Open Circuit Test -> PASS
+[8651 ms] INFO: Starting short circuit test
+Original fault relay state: NC=LOW NO=HIGH
+[8652 ms] INFO: Setting IO27 HIGH to simulate short circuit fault
+Fault relay changed: NC=HIGH NO=LOW
+[8760 ms] INFO: Setting IO27 LOW and checking relay restore
+Fault relay restored: NC=LOW NO=HIGH
+[8770 ms] TEST: Short Circuit Test -> PASS
+[9021 ms] TEST: Fault Relay Test -> PASS
+[9022 ms] INFO: Automated test sequence complete
+[9023 ms] STATE: TEST_RUNNING -> PASS | Automated test sequence passed
 ```
 
 ## Debugging Workflow
@@ -138,8 +179,8 @@ Recommended early bench workflow:
 
 | Alarm test low | GPIO25 | Output | Future relay/control output. |
 | Alarm test high | GPIO33 | Output | Future relay/control output. |
-| EOL open-circuit test | GPIO26 | Output | Future relay/control output. |
-| EOL short-circuit test | GPIO27 | Output | Future relay/control output. |
+| EOL open-circuit test | GPIO26 | Output | Driven HIGH during open-circuit test. |
+| EOL short-circuit test | GPIO27 | Output | Driven HIGH during short-circuit test. |
 | READY LED | GPIO21 | Output | On in `READY`. |
 | PASS LED | GPIO19 | Output | On in `PASS`. |
 | FAIL LED | GPIO18 | Output | On in `FAIL`. |

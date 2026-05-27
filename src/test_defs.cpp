@@ -8,6 +8,10 @@ const char *testIdToString(TestId testId)
         return "Power Test";
     case TestId::ALARM_TEST:
         return "Alarm Test";
+    case TestId::OPEN_CIRCUIT_TEST:
+        return "Open Circuit Test";
+    case TestId::SHORT_CIRCUIT_TEST:
+        return "Short Circuit Test";
     case TestId::FAULT_RELAY_TEST:
         return "Fault Relay Test";
     }

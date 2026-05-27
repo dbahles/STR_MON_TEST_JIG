@@ -4,6 +4,8 @@ enum class TestId
 {
     POWER_TEST,
     ALARM_TEST,
+    OPEN_CIRCUIT_TEST,
+    SHORT_CIRCUIT_TEST,
     FAULT_RELAY_TEST
 };
 

@@ -77,3 +77,13 @@ Result:
   - `F` forces `FAIL`.
 - Serial-triggered PASS/FAIL results are held until `R` so testing can be done without hardware fitted.
 - Confirmed serial command support is intended for development mode.
+
+### Added Open And Short Tests
+
+- Added open-circuit test using GPIO26.
+- Added short-circuit test using GPIO27.
+- Both tests monitor `PIN_FLT_NO` and `PIN_FLT_NC`.
+- Each test checks for relay transition from the original state, then checks restore after the output is turned off.
+- Transition and restore checks use 2 second timeouts with short polling intervals.
+- Build and upload were confirmed on the ESP32 dev board.
+- Full relay behavior validation is pending until the real jig hardware is available.

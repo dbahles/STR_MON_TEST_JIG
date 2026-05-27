@@ -9,6 +9,8 @@
 - Added firmware version reporting to the serial boot banner.
 - Added serial debug commands for starting tests, resetting to IDLE, printing status/help, and forcing PASS/FAIL.
 - Added detailed state transition logging.
+- Added automated open-circuit and short-circuit tests using GPIO26/GPIO27 and fault relay input transition/restore checks.
+- Noted that open/short relay behavior still requires validation on final hardware.
 - Added READY, TEST_RUNNING, PASS, and FAIL workflow.
 - Added buzzer helper and short insertion confirmation beep.
 - Updated indicator handling so IDLE turns all status LEDs off.

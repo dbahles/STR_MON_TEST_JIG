@@ -32,6 +32,16 @@ namespace RelayControl
         writeOutput(PIN_ALM_TEST_H, isOn);
     }
 
+    void setOpenCircuitTest(bool isOn)
+    {
+        writeOutput(PIN_EOL_OC_TEST, isOn);
+    }
+
+    void setShortCircuitTest(bool isOn)
+    {
+        writeOutput(PIN_EOL_SC_TEST, isOn);
+    }
+
     void allOff()
     {
         writeOutput(PIN_ALM_TEST_L, false);
