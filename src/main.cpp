@@ -26,6 +26,12 @@ namespace
     bool holdResultForSerialDebug = false;
     unsigned long dutInputChangedAt = 0;
 
+    bool stableTestButtonPressed = false;
+    bool lastRawTestButtonPressed = false;
+    bool testButtonArmed = false;
+    bool testButtonPressEvent = false;
+    unsigned long testButtonInputChangedAt = 0;
+
     void changeState(SystemState nextState, const char *reason)
     {
         if (currentState == nextState)
@@ -59,10 +65,65 @@ namespace
                digitalRead(PIN_FLT_NO) == HIGH;
     }
 
-    bool isTestButtonPressed()
+    bool readRawTestButtonPressed()
     {
         // The TEST switch has an external pull-up, so pressed reads LOW.
         return digitalRead(PIN_TEST_SW) == LOW;
+    }
+
+    void updateTestButton()
+    {
+        testButtonPressEvent = false;
+
+        const bool rawPressed = readRawTestButtonPressed();
+        if (rawPressed != lastRawTestButtonPressed)
+        {
+            lastRawTestButtonPressed = rawPressed;
+            testButtonInputChangedAt = millis();
+            return;
+        }
+
+        if ((millis() - testButtonInputChangedAt) < TEST_BUTTON_DEBOUNCE_MS)
+        {
+            return;
+        }
+
+        if (rawPressed == stableTestButtonPressed)
+        {
+            if (!stableTestButtonPressed && !testButtonArmed)
+            {
+                testButtonArmed = true;
+            }
+
+            return;
+        }
+
+        stableTestButtonPressed = rawPressed;
+
+        if (!stableTestButtonPressed)
+        {
+            // A release arms the next press. This prevents an input already LOW
+            // during reset from immediately starting a test.
+            testButtonArmed = true;
+            return;
+        }
+
+        if (testButtonArmed)
+        {
+            testButtonPressEvent = true;
+            testButtonArmed = false;
+        }
+    }
+
+    bool consumeTestButtonPress()
+    {
+        if (!testButtonPressEvent)
+        {
+            return false;
+        }
+
+        testButtonPressEvent = false;
+        return true;
     }
 
     void updateDutPresence()
@@ -176,6 +237,7 @@ namespace
         Serial.println("  R = Reset system to IDLE");
         Serial.println("  S = Print current system status");
         Serial.println("  H = Print this help menu");
+        Serial.println("  L = List test sequence");
         Serial.println("  P = Force PASS state");
         Serial.println("  F = Force FAIL state");
         Serial.println();
@@ -196,7 +258,9 @@ namespace
         Serial.print("  Raw PIN_FLT_NC: ");
         Serial.println(digitalRead(PIN_FLT_NC) == HIGH ? "HIGH" : "LOW");
         Serial.print("  TEST switch: ");
-        Serial.println(isTestButtonPressed() ? "PRESSED" : "RELEASED");
+        Serial.println(stableTestButtonPressed ? "PRESSED" : "RELEASED");
+        Serial.print("  TEST switch armed: ");
+        Serial.println(testButtonArmed ? "YES" : "NO");
         Serial.print("  Development mode: ");
         Serial.println(DEVELOPMENT_MODE ? "ON" : "OFF");
         Serial.print("  Serial result hold: ");
@@ -227,6 +291,10 @@ namespace
 
         case 'H':
             printHelpMenu();
+            break;
+
+        case 'L':
+            testManager.printTestSequence();
             break;
 
         case 'P':
@@ -264,6 +332,7 @@ namespace
     void handleStateMachine()
     {
         updateDutPresence();
+        updateTestButton();
 
         switch (currentState)
         {
@@ -282,7 +351,7 @@ namespace
             {
                 returnToIdle("DUT removed before test");
             }
-            else if (isTestButtonPressed())
+            else if (consumeTestButtonPress())
             {
                 startTestRun("TEST pushbutton pressed", false);
             }

@@ -80,10 +80,27 @@ Result:
 
 ### Added Open And Short Tests
 
-- Added open-circuit test using GPIO26.
-- Added short-circuit test using GPIO27.
+- Added open-circuit test using GPIO17.
+- Added short-circuit test using GPIO16.
 - Both tests monitor `PIN_FLT_NO` and `PIN_FLT_NC`.
 - Each test checks for relay transition from the original state, then checks restore after the output is turned off.
 - Transition and restore checks use 2 second timeouts with short polling intervals.
 - Build and upload were confirmed on the ESP32 dev board.
 - Full relay behavior validation is pending until the real jig hardware is available.
+
+### Added Alarm Positive And Negative Tests
+
+- Added alarm positive test using GPIO19.
+- Added alarm negative test using GPIO18.
+- Added averaged alarm sense voltage reading on GPIO39.
+- Configured GPIO39 ADC attenuation with `ADC_11db`.
+- Alarm voltage must be between `ALARM_SENSE_MIN_V` and `ALARM_SENSE_MAX_V`.
+- Alarm tests verify `PIN_FLT_NO` and `PIN_FLT_NC` do not change during the active alarm output period.
+- Alarm outputs are returned LOW before each test exits.
+- Added serial `L` command to print the current automated test sequence.
+
+### TEST Button Start Guard
+
+- Updated TEST pushbutton handling to require a fresh debounced press event.
+- A button/input already LOW during reset will not start a test until it is released and pressed again.
+- Serial command `T` still starts the test sequence immediately in development mode.

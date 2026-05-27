@@ -54,15 +54,16 @@ On confirmed DUT insertion:
 
 In `READY`:
 
-- The firmware waits for the TEST pushbutton on GPIO16.
+- The firmware waits for the TEST pushbutton on GPIO32.
 - The TEST pushbutton uses an external pull-up and reads LOW when pressed.
+- The firmware requires a fresh debounced button press event. If the button input is already LOW during reset, the test will not start until the switch is released and pressed again.
 
 When TEST is pressed:
 
 - The state changes to `TEST_RUNNING`.
 - `runTests()` is called.
 - The current implementation delegates to `TestManager::runAllTests()`.
-- The automated sequence now includes open-circuit and short-circuit relay response checks.
+- The automated sequence now includes alarm positive, alarm negative, open-circuit, and short-circuit checks.
 
 After testing:
 
@@ -87,6 +88,7 @@ In development mode, serial commands work regardless of the physical DUT inputs.
 | `R` | Reset the state machine to `IDLE`. |
 | `S` | Print the current system status. |
 | `H` | Print the help menu. |
+| `L` | List the automated test sequence in run order. |
 | `P` | Force the `PASS` state for debug. |
 | `F` | Force the `FAIL` state for debug. |
 
@@ -99,31 +101,74 @@ The open-circuit and short-circuit tests live in `TestManager`.
 Open-circuit test:
 
 1. Read the original fault relay input state from `PIN_FLT_NO` and `PIN_FLT_NC`.
-2. Set `PIN_EOL_OC_TEST` / GPIO26 HIGH.
+2. Set `PIN_EOL_OC_TEST` / GPIO17 HIGH.
 3. Poll the relay inputs until either input changes from the original state.
 4. Fail with `TIMEOUT` if no relay transition is detected within 2 seconds.
-5. Set GPIO26 LOW.
+5. Set GPIO17 LOW.
 6. Poll until the relay inputs return to the original state.
 7. Return `PASS` only if both the transition and restore checks succeed.
 
 Short-circuit test:
 
 1. Read the original fault relay input state from `PIN_FLT_NO` and `PIN_FLT_NC`.
-2. Set `PIN_EOL_SC_TEST` / GPIO27 HIGH.
+2. Set `PIN_EOL_SC_TEST` / GPIO16 HIGH.
 3. Poll the relay inputs until either input changes from the original state.
 4. Fail with `TIMEOUT` if no relay transition is detected within 2 seconds.
-5. Set GPIO27 LOW.
+5. Set GPIO16 LOW.
 6. Poll until the relay inputs return to the original state.
 7. Return `PASS` only if both the transition and restore checks succeed.
 
 The polling loop uses short 10 ms waits between input reads. This keeps the code easy to follow while avoiding long fixed delays.
+
+## Automated Alarm Tests
+
+The alarm positive and alarm negative tests live in `TestManager` and use `AdcManager::readAlarmSenseVoltage()` for the GPIO39 alarm sense reading.
+
+Configurable values:
+
+| Setting | Current value |
+| --- | ---: |
+| `ALARM_TEST_DURATION_MS` | 1500 ms |
+| `ALARM_SETTLE_DELAY_MS` | 500 ms |
+| `ALARM_INTERTEST_DELAY_MS` | 500 ms |
+| `ALARM_SENSE_MIN_V` | 2.5 V |
+| `ALARM_SENSE_MAX_V` | 3.3 V |
+| `ALARM_ADC_SAMPLES` | 10 samples |
+
+Alarm positive test:
+
+1. Read the original fault relay state from `PIN_FLT_NO` and `PIN_FLT_NC`.
+2. Set `PIN_ALM_TEST_H` / GPIO19 HIGH.
+3. Wait for the alarm settle time while confirming the fault relay state does not change.
+4. Read the alarm sense voltage on GPIO39.
+5. Confirm the voltage is between `ALARM_SENSE_MIN_V` and `ALARM_SENSE_MAX_V`.
+6. Confirm the fault relay state is still unchanged.
+7. Hold the output active for `ALARM_TEST_DURATION_MS` while monitoring that the fault relay remains unchanged.
+8. Set GPIO19 LOW.
+9. Wait `ALARM_INTERTEST_DELAY_MS`.
+10. Return `PASS` only if all checks succeed.
+
+Alarm negative test:
+
+1. Read the original fault relay state from `PIN_FLT_NO` and `PIN_FLT_NC`.
+2. Set `PIN_ALM_TEST_L` / GPIO18 HIGH.
+3. Wait for the alarm settle time while confirming the fault relay state does not change.
+4. Read the alarm sense voltage on GPIO39.
+5. Confirm the voltage is between `ALARM_SENSE_MIN_V` and `ALARM_SENSE_MAX_V`.
+6. Confirm the fault relay state is still unchanged.
+7. Hold the output active for `ALARM_TEST_DURATION_MS` while monitoring that the fault relay remains unchanged.
+8. Set GPIO18 LOW.
+9. Wait `ALARM_INTERTEST_DELAY_MS`.
+10. Return `PASS` only if all checks succeed.
+
+The alarm output is always switched LOW before the test returns, including failure paths.
 
 Example serial output:
 
 ```text
 ================================
  STR-MON Automated Test Jig
- Firmware version: 0.3.0
+ Firmware version: 0.4.0
  Simulation mode: ON
  Development mode: ON
  Serial baud: 115200
@@ -134,24 +179,37 @@ Command received: T
 [8020 ms] STATE: IDLE -> TEST_RUNNING | Serial command T
 [8021 ms] INFO: Starting automated test sequence
 [8272 ms] TEST: Power Test -> PASS
-[8523 ms] TEST: Alarm Test -> PASS
-[8524 ms] INFO: Starting open circuit test
+[8523 ms] INFO: Alarm Positive Test Started
+Initial fault relay state: NC=LOW NO=HIGH
+[8524 ms] INFO: GPIO19 HIGH
+Alarm Sense Voltage = 3.00 V
+[10040 ms] INFO: Holding alarm output active
+[11541 ms] INFO: GPIO19 LOW
+[12042 ms] TEST: Alarm Positive Test -> PASS
+[12043 ms] INFO: Alarm Negative Test Started
+Initial fault relay state: NC=LOW NO=HIGH
+[12044 ms] INFO: GPIO18 HIGH
+Alarm Sense Voltage = 3.00 V
+[13560 ms] INFO: Holding alarm output active
+[15061 ms] INFO: GPIO18 LOW
+[15562 ms] TEST: Alarm Negative Test -> PASS
+[15563 ms] INFO: Starting open circuit test
 Original fault relay state: NC=LOW NO=HIGH
-[8525 ms] INFO: Setting IO26 HIGH to simulate open circuit fault
+[15564 ms] INFO: Setting IO17 HIGH to simulate open circuit fault
 Fault relay changed: NC=HIGH NO=LOW
-[8640 ms] INFO: Setting IO26 LOW and checking relay restore
+[15680 ms] INFO: Setting IO17 LOW and checking relay restore
 Fault relay restored: NC=LOW NO=HIGH
-[8650 ms] TEST: Open Circuit Test -> PASS
-[8651 ms] INFO: Starting short circuit test
+[15690 ms] TEST: Open Circuit Test -> PASS
+[15691 ms] INFO: Starting short circuit test
 Original fault relay state: NC=LOW NO=HIGH
-[8652 ms] INFO: Setting IO27 HIGH to simulate short circuit fault
+[15692 ms] INFO: Setting IO16 HIGH to simulate short circuit fault
 Fault relay changed: NC=HIGH NO=LOW
-[8760 ms] INFO: Setting IO27 LOW and checking relay restore
+[15800 ms] INFO: Setting IO16 LOW and checking relay restore
 Fault relay restored: NC=LOW NO=HIGH
-[8770 ms] TEST: Short Circuit Test -> PASS
-[9021 ms] TEST: Fault Relay Test -> PASS
-[9022 ms] INFO: Automated test sequence complete
-[9023 ms] STATE: TEST_RUNNING -> PASS | Automated test sequence passed
+[15810 ms] TEST: Short Circuit Test -> PASS
+[16061 ms] TEST: Fault Relay Test -> PASS
+[16062 ms] INFO: Automated test sequence complete
+[16063 ms] STATE: TEST_RUNNING -> PASS | Automated test sequence passed
 ```
 
 ## Debugging Workflow
@@ -161,10 +219,11 @@ Recommended early bench workflow:
 1. Open the PlatformIO serial monitor at 115200 baud.
 2. Press reset on the ESP32 and confirm the boot banner appears.
 3. Send `H` to confirm the command parser is active.
-4. Send `S` to inspect the current state and raw input levels.
-5. Send `T` to run the simulated test sequence without a DUT.
-6. Send `P` or `F` to check the PASS and FAIL indicators.
-7. Send `R` to return to `IDLE`.
+4. Send `L` to confirm the test order.
+5. Send `S` to inspect the current state and raw input levels.
+6. Send `T` to run the simulated test sequence without a DUT.
+7. Send `P` or `F` to check the PASS and FAIL indicators.
+8. Send `R` to return to `IDLE`.
 
 ## Pin Assignments
 
@@ -172,19 +231,19 @@ Recommended early bench workflow:
 | --- | --- | --- | --- |
 | `PIN_FLT_NO` | GPIO22 | Input | Fault relay NO contact. HIGH means DUT present. |
 | `PIN_FLT_NC` | GPIO23 | Input | Fault relay NC contact. HIGH means DUT present. |
-| TEST pushbutton | GPIO16 | Input | External pull-up. LOW means pressed. |
+| TEST pushbutton | GPIO32 | Input | External pull-up. LOW means pressed. |
 | Power sense | GPIO36 | Input | Future ADC power measurement. |
 | Alarm sense | GPIO39 | Input | Future ADC/alarm measurement. |
-| Fault input | GPIO32 | Input | Active LOW fault input. Use internal pull-up. |
+| Fault input | GPIO21 | Input | Active LOW fault input. Uses internal pull-up. |
 
-| Alarm test low | GPIO25 | Output | Future relay/control output. |
-| Alarm test high | GPIO33 | Output | Future relay/control output. |
-| EOL open-circuit test | GPIO26 | Output | Driven HIGH during open-circuit test. |
-| EOL short-circuit test | GPIO27 | Output | Driven HIGH during short-circuit test. |
-| READY LED | GPIO21 | Output | On in `READY`. |
-| PASS LED | GPIO19 | Output | On in `PASS`. |
-| FAIL LED | GPIO18 | Output | On in `FAIL`. |
-| Buzzer | GPIO17 | Output | Short beep on DUT insertion. |
+| Alarm test low / negative | GPIO18 | Output | Alarm negative test output. |
+| Alarm test high / positive | GPIO19 | Output | Alarm positive test output. |
+| EOL open-circuit test | GPIO17 | Output | Driven HIGH during open-circuit test. |
+| EOL short-circuit test | GPIO16 | Output | Driven HIGH during short-circuit test. |
+| READY LED | GPIO33 | Output | On in `READY`. |
+| PASS LED | GPIO25 | Output | On in `PASS`. |
+| FAIL LED | GPIO26 | Output | On in `FAIL`. |
+| Buzzer | GPIO27 | Output | Short beep on DUT insertion. |
 
 The pin numbers in this table are ESP32 GPIO numbers, not physical dev-module header pin numbers.
 

@@ -191,19 +191,20 @@ Result: PASS
 
 | ESP32 Pin | Signal Name | Direction | Function                 |
 | --------- | ----------- | --------- | ------------------------ |
-| GPIO34    | PWR_SENSE   | ADC Input | DUT voltage monitor      |
-| GPIO35    | ALM_SENSE   | ADC Input | Alarm/current sense      |
+| GPIO36    | PWR_SENSE   | ADC Input | DUT voltage monitor      |
+| GPIO39    | ALM_SENSE   | ADC Input | Alarm/current sense      |
 | GPIO32    | TEST_SW     | Input     | Start button             |
-| GPIO25    | ALM_TEST_L  | Output    | Alarm low relay drive    |
-| GPIO26    | ALM_TEST_H  | Output    | Alarm high relay drive   |
-| GPIO27    | EOL_OC_TEST | Output    | Open circuit simulation  |
-| GPIO14    | EOL_SC_TEST | Output    | Short circuit simulation |
-| GPIO12    | LED_RDY     | Output    | Ready LED                |
-| GPIO13    | LED_PASS    | Output    | Pass LED                 |
-| GPIO15    | LED_FAIL    | Output    | Fail LED                 |
-| GPIO2     | BUZZER      | Output    | Audible buzzer           |
-| GPIO16    | FLT_NO      | Input     | Fault relay NO           |
-| GPIO17    | FLT_NC      | Input     | Fault relay NC           |
+| GPIO21    | FLT_IN      | Input     | Active LOW fault input   |
+| GPIO18    | ALM_TEST_L  | Output    | Alarm negative drive     |
+| GPIO19    | ALM_TEST_H  | Output    | Alarm positive drive     |
+| GPIO17    | EOL_OC_TEST | Output    | Open circuit simulation  |
+| GPIO16    | EOL_SC_TEST | Output    | Short circuit simulation |
+| GPIO33    | LED_RDY     | Output    | Ready LED                |
+| GPIO25    | LED_PASS    | Output    | Pass LED                 |
+| GPIO26    | LED_FAIL    | Output    | Fail LED                 |
+| GPIO27    | BUZZER      | Output    | Audible buzzer           |
+| GPIO22    | FLT_NO      | Input     | Fault relay NO           |
+| GPIO23    | FLT_NC      | Input     | Fault relay NC           |
 
 ---
 
