@@ -192,17 +192,16 @@ Result: PASS
 | ESP32 Pin | Signal Name | Direction | Function                 |
 | --------- | ----------- | --------- | ------------------------ |
 | GPIO36    | PWR_SENSE   | ADC Input | DUT voltage monitor      |
-| GPIO39    | ALM_SENSE   | ADC Input | Alarm/current sense      |
-| GPIO32    | TEST_SW     | Input     | Start button             |
-| GPIO21    | FLT_IN      | Input     | Active LOW fault input   |
-| GPIO18    | ALM_TEST_L  | Output    | Alarm negative drive     |
-| GPIO19    | ALM_TEST_H  | Output    | Alarm positive drive     |
-| GPIO17    | EOL_OC_TEST | Output    | Open circuit simulation  |
-| GPIO16    | EOL_SC_TEST | Output    | Short circuit simulation |
-| GPIO33    | LED_RDY     | Output    | Ready LED                |
-| GPIO25    | LED_PASS    | Output    | Pass LED                 |
-| GPIO26    | LED_FAIL    | Output    | Fail LED                 |
-| GPIO27    | BUZZER      | Output    | Audible buzzer           |
+| GPIO16    | TEST_SW     | Input     | Start button             |
+| GPIO32    | FLT_IN      | Input     | Active LOW fault input   |
+| GPIO25    | ALM_TEST_L  | Output    | Alarm negative drive     |
+| GPIO33    | ALM_TEST_H  | Output    | Alarm positive drive     |
+| GPIO26    | EOL_OC_TEST | Output    | Open circuit simulation  |
+| GPIO27    | EOL_SC_TEST | Output    | Short circuit simulation |
+| GPIO21    | LED_RDY     | Output    | Ready LED                |
+| GPIO19    | LED_PASS    | Output    | Pass LED                 |
+| GPIO18    | LED_FAIL    | Output    | Fail LED                 |
+| GPIO17    | BUZZER      | Output    | Audible buzzer           |
 | GPIO22    | FLT_NO      | Input     | Fault relay NO           |
 | GPIO23    | FLT_NC      | Input     | Fault relay NC           |
 

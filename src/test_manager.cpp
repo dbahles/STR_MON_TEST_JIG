@@ -11,9 +11,13 @@
 namespace
 {
     const TestId TEST_SEQUENCE[] = {
+#if ENABLE_POWER_TEST
         TestId::POWER_TEST,
+#endif
+#if ENABLE_ALARM_OUTPUT_TESTS
         TestId::ALARM_POSITIVE_TEST,
         TestId::ALARM_NEGATIVE_TEST,
+#endif
         TestId::OPEN_CIRCUIT_TEST,
         TestId::SHORT_CIRCUIT_TEST,
         TestId::FAULT_RELAY_TEST};
@@ -116,20 +120,6 @@ namespace
         return true;
     }
 
-    bool isAlarmVoltageValid(float voltage)
-    {
-        return !isnan(voltage) &&
-               voltage >= ALARM_SENSE_MIN_V &&
-               voltage <= ALARM_SENSE_MAX_V;
-    }
-
-    void logAlarmVoltage(float voltage)
-    {
-        Serial.print("Alarm Sense Voltage = ");
-        Serial.print(voltage, 2);
-        Serial.println(" V");
-    }
-
     bool isDutVoltageValid(float voltage)
     {
         return !isnan(voltage) &&
@@ -142,6 +132,37 @@ namespace
         Serial.print("DUT Power Voltage = ");
         Serial.print(voltage, 2);
         Serial.println(" V");
+    }
+
+    float readAndLogCurrent(const char *label)
+    {
+        const float currentMa = AdcManager::readCurrentMilliamps();
+        Serial.print(label);
+        Serial.print(" current = ");
+        Serial.print(currentMa, 2);
+        Serial.println(" mA");
+        return currentMa;
+    }
+
+    bool isValueBetween(float value, float minimum, float maximum)
+    {
+        return !isnan(value) &&
+               value >= minimum &&
+               value <= maximum;
+    }
+
+    bool isCloseTo(float value, float target, float tolerance)
+    {
+        return !isnan(value) &&
+               fabs(value - target) <= tolerance;
+    }
+
+    void waitUntilMinimumElapsed(unsigned long startedAt, unsigned long minimumMs)
+    {
+        while ((millis() - startedAt) < minimumMs)
+        {
+            delay(FAULT_RELAY_POLL_MS);
+        }
     }
 }
 
@@ -163,10 +184,30 @@ TestResult TestManager::runAllTests()
         {
             return result;
         }
+
+        if (TEST_STEP_DELAY_MS > 0 && (index + 1) < TEST_SEQUENCE_COUNT)
+        {
+            delay(TEST_STEP_DELAY_MS);
+        }
     }
 
     SerialLogger::info("Automated test sequence complete");
     return TestResult::PASS;
+}
+
+uint8_t TestManager::getTestCount() const
+{
+    return TEST_SEQUENCE_COUNT;
+}
+
+TestId TestManager::getTestId(uint8_t index) const
+{
+    if (index >= TEST_SEQUENCE_COUNT)
+    {
+        return TEST_SEQUENCE[TEST_SEQUENCE_COUNT - 1];
+    }
+
+    return TEST_SEQUENCE[index];
 }
 
 void TestManager::printTestSequence()
@@ -228,49 +269,80 @@ TestResult TestManager::runAlarmOutputTest(
 {
     SerialLogger::info(testName);
 
-    const FaultRelayState originalState = readFaultRelayState();
-    logFaultRelayState("Initial fault relay state:", originalState);
+    TestResult result = TestResult::PASS;
+
+    RelayControl::setOpenCircuitTest(false);
+    setAlarmOutput(false);
+    delay(ALARM_CURRENT_SETTLE_MS);
+
+    const float baselineCurrent = readAndLogCurrent("Baseline");
 
     SerialLogger::info(activateMessage);
     setAlarmOutput(true);
+    delay(ALARM_CURRENT_SETTLE_MS);
 
-    TestResult result = TestResult::PASS;
+    const float alarmCurrent = readAndLogCurrent("Alarm active");
+    const float alarmIncrease = alarmCurrent - baselineCurrent;
 
-    if (!waitWithRelayStable(originalState, ALARM_SETTLE_DELAY_MS))
+    Serial.print("Alarm current increase = ");
+    Serial.print(alarmIncrease, 2);
+    Serial.println(" mA");
+
+    if (!isValueBetween(alarmIncrease, ALARM_CURRENT_INCREASE_MIN_MA, ALARM_CURRENT_INCREASE_MAX_MA))
     {
-        SerialLogger::error("Fault relay state changed during alarm settle delay");
+        SerialLogger::error("Alarm current increase out of expected range");
         result = TestResult::FAIL;
     }
 
     if (result == TestResult::PASS)
     {
-        const float alarmVoltage = AdcManager::readAlarmSenseVoltage();
-        logAlarmVoltage(alarmVoltage);
+        SerialLogger::info("Setting GPIO26 HIGH to apply open-circuit fault during alarm");
+        RelayControl::setOpenCircuitTest(true);
+        delay(ALARM_CURRENT_SETTLE_MS);
 
-        if (!isAlarmVoltageValid(alarmVoltage))
+        const float alarmOcCurrent = readAndLogCurrent("Alarm + OC fault");
+        const float ocDrop = alarmCurrent - alarmOcCurrent;
+
+        Serial.print("OC fault current drop = ");
+        Serial.print(ocDrop, 2);
+        Serial.println(" mA");
+
+        if (!isValueBetween(ocDrop, ALARM_OC_CURRENT_DROP_MIN_MA, ALARM_OC_CURRENT_DROP_MAX_MA))
         {
-            SerialLogger::error("Alarm sense voltage out of range");
+            SerialLogger::error("OC fault current drop out of expected range");
             result = TestResult::FAIL;
         }
     }
 
-    if (result == TestResult::PASS && !isFaultRelayStateValid(originalState))
-    {
-        SerialLogger::error("Fault relay state changed during alarm test");
-        result = TestResult::FAIL;
-    }
+    SerialLogger::info("Setting GPIO26 LOW and checking alarm current restores");
+    RelayControl::setOpenCircuitTest(false);
+    delay(ALARM_CURRENT_SETTLE_MS);
 
     if (result == TestResult::PASS)
     {
-        SerialLogger::info("Holding alarm output active");
-        if (!waitWithRelayStable(originalState, ALARM_TEST_DURATION_MS))
+        const float alarmRestoredCurrent = readAndLogCurrent("Alarm restored");
+        if (!isCloseTo(alarmRestoredCurrent, alarmCurrent, ALARM_CURRENT_RESTORE_TOLERANCE_MA))
         {
-            SerialLogger::error("Fault relay state changed while alarm output was active");
+            SerialLogger::error("Alarm current did not restore after OC fault cleared");
             result = TestResult::FAIL;
         }
     }
 
     SerialLogger::info(restoreMessage);
+    setAlarmOutput(false);
+    delay(ALARM_CURRENT_SETTLE_MS);
+
+    if (result == TestResult::PASS)
+    {
+        const float finalCurrent = readAndLogCurrent("Alarm off final");
+        if (!isCloseTo(finalCurrent, baselineCurrent, ALARM_CURRENT_RESTORE_TOLERANCE_MA))
+        {
+            SerialLogger::error("Current did not return near baseline after alarm cleared");
+            result = TestResult::FAIL;
+        }
+    }
+
+    RelayControl::setOpenCircuitTest(false);
     setAlarmOutput(false);
     delay(ALARM_INTERTEST_DELAY_MS);
 
@@ -289,17 +361,23 @@ TestResult TestManager::runFaultSimulationTest(
     logFaultRelayState("Original fault relay state:", originalState);
 
     SerialLogger::info(activateMessage);
+    const unsigned long outputActivatedAt = millis();
     setFaultOutput(true);
 
     if (!waitForRelayChange(originalState, FAULT_RELAY_TIMEOUT_MS))
     {
         SerialLogger::error("Fault relay did not change before timeout");
+        waitUntilMinimumElapsed(outputActivatedAt, TEST_OUTPUT_VISIBLE_ON_MS);
         setFaultOutput(false);
+        delay(TEST_OUTPUT_VISIBLE_OFF_MS);
         return TestResult::TIMEOUT;
     }
 
+    waitUntilMinimumElapsed(outputActivatedAt, TEST_OUTPUT_VISIBLE_ON_MS);
+
     SerialLogger::info(restoreMessage);
     setFaultOutput(false);
+    delay(TEST_OUTPUT_VISIBLE_OFF_MS);
 
     if (!waitForRelayRestore(originalState, FAULT_RELAY_TIMEOUT_MS))
     {
@@ -331,8 +409,8 @@ TestResult TestManager::runAlarmPositiveTest()
     return runAlarmOutputTest(
         "Alarm Positive Test Started",
         RelayControl::setAlarmTestHigh,
-        "GPIO19 HIGH",
-        "GPIO19 LOW");
+        "GPIO33 HIGH",
+        "GPIO33 LOW");
 }
 
 TestResult TestManager::runAlarmNegativeTest()
@@ -340,8 +418,8 @@ TestResult TestManager::runAlarmNegativeTest()
     return runAlarmOutputTest(
         "Alarm Negative Test Started",
         RelayControl::setAlarmTestLow,
-        "GPIO18 HIGH",
-        "GPIO18 LOW");
+        "GPIO25 HIGH",
+        "GPIO25 LOW");
 }
 
 TestResult TestManager::runOpenCircuitTest()
@@ -349,8 +427,8 @@ TestResult TestManager::runOpenCircuitTest()
     return runFaultSimulationTest(
         "Starting open circuit test",
         RelayControl::setOpenCircuitTest,
-        "Setting IO17 HIGH to simulate open circuit fault",
-        "Setting IO17 LOW and checking relay restore");
+        "Setting GPIO26 HIGH to simulate open circuit fault",
+        "Setting GPIO26 LOW and checking relay restore");
 }
 
 TestResult TestManager::runShortCircuitTest()
@@ -358,8 +436,8 @@ TestResult TestManager::runShortCircuitTest()
     return runFaultSimulationTest(
         "Starting short circuit test",
         RelayControl::setShortCircuitTest,
-        "Setting IO16 HIGH to simulate short circuit fault",
-        "Setting IO16 LOW and checking relay restore");
+        "Setting GPIO27 HIGH to simulate short circuit fault",
+        "Setting GPIO27 LOW and checking relay restore");
 }
 
 TestResult TestManager::runFaultRelayTest()
@@ -368,7 +446,17 @@ TestResult TestManager::runFaultRelayTest()
     delay(250);
     return TestResult::PASS;
 #else
-    // Future: verify fault relay NO/NC contacts.
-    return TestResult::ERROR;
+    SerialLogger::info("Fault Relay Contact Test Started");
+
+    const FaultRelayState state = readFaultRelayState();
+    logFaultRelayState("Fault relay contact state:", state);
+
+    if (state.ncHigh == state.noHigh)
+    {
+        SerialLogger::error("Fault relay NC and NO inputs are not complementary");
+        return TestResult::FAIL;
+    }
+
+    return TestResult::PASS;
 #endif
 }

@@ -2,6 +2,18 @@
 
 ## Unreleased
 
+- Milestone: hardware bring-up firmware now has normal jig, GPIO hardware-test, and INA-test PlatformIO environments.
+- Moved the current-sense ADC input to GPIO36 after finding the INA output had accidentally been wired to the ESP32 EN pin.
+- Added INA240 current reading support using a 0.5 ohm shunt and provisional gain/zero calibration constants.
+- Reworked alarm positive and alarm negative tests to use current deltas:
+  - record baseline current,
+  - enable alarm output and check for about 40 mA increase,
+  - enable EOL open-circuit output and check for about 12-15 mA drop,
+  - verify current restores when outputs are cleared.
+- Re-enabled automatic DUT scanning and TEST switch starting in the main firmware.
+- Added manual serial controls for alarm outputs during bench testing.
+- Added standalone hardware-test firmware for direct GPIO output/input checks from serial commands.
+- Added standalone INA-test firmware for ADC/current calibration and manual alarm/OC output toggling.
 - Added initial DUT detection state machine architecture.
 - Added debounced DUT insertion/removal detection using the `PIN_FLT_NO` and `PIN_FLT_NC` inputs.
 - Added TEST pushbutton handling on GPIO32.

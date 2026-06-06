@@ -6,18 +6,10 @@
 
 namespace AdcManager
 {
-    void begin()
-    {
-        pinMode(PIN_PWR_SENSE, INPUT);
-        pinMode(PIN_ALM_SENSE, INPUT);
-        analogSetPinAttenuation(PIN_PWR_SENSE, ADC_11db);
-        analogSetPinAttenuation(PIN_ALM_SENSE, ADC_11db);
-    }
-
-    float readDutVoltage()
+    uint16_t readPowerSenseRaw()
     {
 #if SIMULATION_MODE
-        return 24.0f;
+        return 0;
 #else
         uint32_t rawTotal = 0;
 
@@ -27,31 +19,54 @@ namespace AdcManager
             delay(2);
         }
 
-        const float averageRaw = static_cast<float>(rawTotal) / ADC_SAMPLE_COUNT;
-        const float adcPinVoltage = averageRaw * (ADC_REFERENCE_VOLTAGE / ADC_MAX_READING);
-
-        // TODO: Replace DUT_POWER_ADC_SCALE after measuring the final voltage divider.
-        return adcPinVoltage * DUT_POWER_ADC_SCALE;
+        return static_cast<uint16_t>(rawTotal / ADC_SAMPLE_COUNT);
 #endif
     }
 
-    float readAlarmSenseVoltage()
+    void begin()
+    {
+        pinMode(PIN_PWR_SENSE, INPUT);
+        analogSetPinAttenuation(PIN_PWR_SENSE, ADC_11db);
+    }
+
+    float rawToAdcVoltage(uint16_t raw)
+    {
+        return static_cast<float>(raw) * (ADC_REFERENCE_VOLTAGE / ADC_MAX_READING);
+    }
+
+    float adcVoltageToCurrentMilliamps(float adcVoltage)
+    {
+        const float senseVoltage = adcVoltage - INA240_ZERO_CURRENT_V;
+        const float currentAmps = senseVoltage / (INA240_GAIN * INA240_SHUNT_OHMS);
+        return currentAmps * 1000.0f;
+    }
+
+    float readPowerSenseAdcVoltage()
     {
 #if SIMULATION_MODE
-        return 3.0f;
+        return 0.0f;
 #else
-        uint32_t rawTotal = 0;
-
-        for (uint8_t sample = 0; sample < ALARM_ADC_SAMPLES; sample++)
-        {
-            rawTotal += analogRead(PIN_ALM_SENSE);
-            delay(2);
-        }
-
-        const float averageRaw = static_cast<float>(rawTotal) / ALARM_ADC_SAMPLES;
-
-        // TODO: Replace this simple 3.3 V scale with calibrated hardware scaling.
-        return averageRaw * (ADC_REFERENCE_VOLTAGE / ADC_MAX_READING);
+        return rawToAdcVoltage(readPowerSenseRaw());
 #endif
     }
+
+    float readDutVoltage()
+    {
+#if SIMULATION_MODE
+        return 24.0f;
+#else
+        // TODO: Replace DUT_POWER_ADC_SCALE after measuring the final voltage divider.
+        return readPowerSenseAdcVoltage() * DUT_POWER_ADC_SCALE;
+#endif
+    }
+
+    float readCurrentMilliamps()
+    {
+#if SIMULATION_MODE
+        return 0.0f;
+#else
+        return adcVoltageToCurrentMilliamps(readPowerSenseAdcVoltage());
+#endif
+    }
+
 }

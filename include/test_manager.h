@@ -1,5 +1,7 @@
 #pragma once
 
+#include <Arduino.h>
+
 #include "test_defs.h"
 
 class TestManager
@@ -7,6 +9,9 @@ class TestManager
 public:
     void begin();
     TestResult runAllTests();
+    TestResult runSingleTest(TestId testId);
+    uint8_t getTestCount() const;
+    TestId getTestId(uint8_t index) const;
     void printTestSequence();
 
 private:
@@ -16,7 +21,6 @@ private:
     TestResult runOpenCircuitTest();
     TestResult runShortCircuitTest();
     TestResult runFaultRelayTest();
-    TestResult runSingleTest(TestId testId);
     TestResult runAlarmOutputTest(
         const char *testName,
         void (*setAlarmOutput)(bool),

@@ -114,3 +114,34 @@ Result:
 - Simulation mode returns 24.0 V for the power test.
 - Added `docs/HARDWARE_VALIDATION_CHECKLIST.md` for first hardware bring-up.
 - Current firmware is ready for hardware validation, with ADC scale and thresholds expected to need calibration.
+
+## 2026-06-01
+
+### Alarm Sense Follow-Up
+
+- `ALM_SENSE` testing has been removed from the active alarm positive and alarm negative tests for now.
+- Revisit `ALM_SENSE` once the rest of the jig is working reliably on hardware.
+- Keep space for later ideas around how to validate alarm feedback without blocking the current bring-up work.
+
+## 2026-06-06
+
+### Hardware Bring-Up Milestone
+
+- Created standalone firmware environments for bench testing:
+  - `hardware-test` for direct serial control of jig GPIO outputs and input status reads.
+  - `ina-test` for isolated INA240 / ADC current measurement checks.
+- Found a wiring/pin-counting issue where the INA output was connected to ESP32 `EN` instead of an ADC GPIO.
+- Symptom was ESP32 rebooting or appearing to lock up as soon as the INA signal was connected.
+- Corrected current-sense mapping to GPIO36.
+- GPIO36 is input-only and is suitable for the INA240 analog output.
+- Confirmed the OC fault output causes the expected alarm current drop, roughly 13 mA on the bench.
+
+### Current Main Firmware State
+
+- Normal firmware is active under `esp32doit-devkit-v1`.
+- Automatic DUT detection is enabled again with `ENABLE_AUTO_DUT_STATE_MACHINE`.
+- The physical TEST switch can start the automated test sequence.
+- Manual test mode is available from serial with `M`, then each TEST switch press or `N` runs one step.
+- Power test remains temporarily disabled with `ENABLE_POWER_TEST 0`.
+- Alarm positive and alarm negative tests are enabled and now use INA current deltas instead of the old alarm-sense voltage check.
+- INA calibration constants are still provisional and should be revisited once final current measurements are recorded.
