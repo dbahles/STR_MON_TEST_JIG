@@ -17,4 +17,11 @@ namespace Buzzer
         delay(durationMs);
         digitalWrite(PIN_BUZZER, LOW);
     }
+
+    void doubleBeep(unsigned long durationMs, unsigned long gapMs)
+    {
+        beep(durationMs);
+        delay(gapMs);
+        beep(durationMs);
+    }
 }

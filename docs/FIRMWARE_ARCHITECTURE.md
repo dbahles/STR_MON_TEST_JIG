@@ -8,9 +8,9 @@ Current states:
 
 | State | Purpose |
 | --- | --- |
-| `IDLE` | No DUT is fitted. READY, PASS, and FAIL indicators are off. |
-| `READY` | A DUT has been detected and the jig is waiting for the TEST pushbutton. |
-| `TEST_RUNNING` | Automated tests are running. Current tests are placeholder/simulation tests. |
+| `IDLE` | No DUT is fitted. READY indicator slowly flashes. |
+| `READY` | A DUT has been detected and the jig is waiting for the TEST pushbutton. READY indicator is solid. |
+| `TEST_RUNNING` | Automated tests are running. PASS and FAIL indicators alternate. |
 | `PASS` | The test sequence passed. The PASS indicator stays on until the DUT is removed. |
 | `FAIL` | The test sequence failed or returned an error. The FAIL indicator stays on until the DUT is removed. |
 | `ERROR_STATE` | Reserved for future unrecoverable jig errors. |
@@ -61,15 +61,18 @@ In `READY`:
 When TEST is pressed:
 
 - The state changes to `TEST_RUNNING`.
+- The buzzer gives a short start beep.
 - `runTests()` is called.
 - The current implementation delegates to `TestManager::runAllTests()`.
-- The automated sequence now includes baseline power, alarm positive, alarm negative, open-circuit, and short-circuit checks.
+- The active automated sequence runs open-circuit, short-circuit, alarm positive, alarm negative, and fault relay checks. The power test is still available but currently disabled during hardware bring-up.
 
 After testing:
 
 - A passing result changes the state to `PASS`.
 - Any non-pass result changes the state to `FAIL`.
+- The buzzer gives a short double beep for the final result.
 - The PASS or FAIL indicator remains on until the DUT is removed.
+- If the DUT remains fitted, the operator can release TEST, then hold TEST for 1.5 seconds to return to `READY` and run the test again without removing the DUT.
 
 On confirmed DUT removal:
 
@@ -129,61 +132,59 @@ The open-circuit and short-circuit tests live in `TestManager`.
 Open-circuit test:
 
 1. Read the original fault relay input state from `PIN_FLT_NO` and `PIN_FLT_NC`.
-2. Set `PIN_EOL_OC_TEST` / GPIO26 HIGH.
-3. Poll the relay inputs until either input changes from the original state.
-4. Fail with `TIMEOUT` if no relay transition is detected within 2 seconds.
-5. Set GPIO26 LOW.
-6. Poll until the relay inputs return to the original state.
-7. Return `PASS` only if both the transition and restore checks succeed.
+2. Confirm the original NC/NO state is complementary.
+3. Set `PIN_EOL_OC_TEST` / GPIO26 HIGH.
+4. Poll the relay inputs until they reach the inverted complementary state and remain stable briefly.
+5. Fail with `TIMEOUT` if the inverted state is not detected within 2 seconds.
+6. Set GPIO26 LOW.
+7. Poll until the relay inputs return to the original state and remain stable briefly.
+8. Return `PASS` only if both the transition and restore checks succeed.
 
 Short-circuit test:
 
 1. Read the original fault relay input state from `PIN_FLT_NO` and `PIN_FLT_NC`.
-2. Set `PIN_EOL_SC_TEST` / GPIO27 HIGH.
-3. Poll the relay inputs until either input changes from the original state.
-4. Fail with `TIMEOUT` if no relay transition is detected within 2 seconds.
-5. Set GPIO27 LOW.
-6. Poll until the relay inputs return to the original state.
-7. Return `PASS` only if both the transition and restore checks succeed.
+2. Confirm the original NC/NO state is complementary.
+3. Set `PIN_EOL_SC_TEST` / GPIO27 HIGH.
+4. Poll the relay inputs until they reach the inverted complementary state and remain stable briefly.
+5. Fail with `TIMEOUT` if the inverted state is not detected within 2 seconds.
+6. Set GPIO27 LOW.
+7. Poll until the relay inputs return to the original state and remain stable briefly.
+8. Return `PASS` only if both the transition and restore checks succeed.
 
 The polling loop uses short 10 ms waits between input reads. This keeps the code easy to follow while avoiding long fixed delays.
 
 ## Automated Alarm Tests
 
-The alarm positive and alarm negative tests live in `TestManager`. The current hardware design does not provide a useful alarm sense ADC value, so the firmware no longer reads an alarm sense input during these tests.
-
-`ALM_SENSE` should be revisited after the rest of the jig workflow is proven on hardware. Possible future work includes reviewing whether a useful alarm feedback path can be added, whether the alarm drive can be inferred another way, or whether a separate validation method is needed once the core jig is stable.
+The alarm positive and alarm negative tests live in `TestManager`. The firmware now uses the INA240 current-sense path on GPIO36 instead of the old alarm-sense voltage check.
 
 Configurable values:
 
 | Setting | Current value |
 | --- | ---: |
-| `ALARM_TEST_DURATION_MS` | 1500 ms |
-| `ALARM_SETTLE_DELAY_MS` | 500 ms |
+| `ALARM_CURRENT_SETTLE_MS` | 1000 ms |
 | `ALARM_INTERTEST_DELAY_MS` | 500 ms |
+| `ALARM_CURRENT_INCREASE_MIN_MA` | 25.0 mA |
+| `ALARM_CURRENT_INCREASE_MAX_MA` | 70.0 mA |
+| `ALARM_OC_CURRENT_DROP_MIN_MA` | 10.0 mA |
+| `ALARM_OC_CURRENT_DROP_MAX_MA` | 20.0 mA |
+| `ALARM_CURRENT_RESTORE_TOLERANCE_MA` | 8.0 mA |
+
 Alarm positive test:
 
-1. Read the original fault relay state from `PIN_FLT_NO` and `PIN_FLT_NC`.
-2. Set `PIN_ALM_TEST_H` / GPIO33 HIGH.
-3. Wait for the alarm settle time while confirming the fault relay state does not change.
-4. Confirm the fault relay state is still unchanged.
-5. Hold the output active for `ALARM_TEST_DURATION_MS` while monitoring that the fault relay remains unchanged.
-6. Set GPIO33 LOW.
-7. Wait `ALARM_INTERTEST_DELAY_MS`.
-8. Return `PASS` only if all checks succeed.
+1. Clear the alarm output and EOL open-circuit output.
+2. Wait for current to settle and read the baseline current.
+3. Set `PIN_ALM_TEST_H` / GPIO33 HIGH.
+4. Wait for current to settle and confirm the current increased by the configured alarm-current range.
+5. Set `PIN_EOL_OC_TEST` / GPIO26 HIGH while the alarm output remains active.
+6. Wait for current to settle and confirm the current drops by the configured OC-drop range.
+7. Clear GPIO26 and confirm alarm current restores.
+8. Clear GPIO33 and confirm current returns near baseline.
 
 Alarm negative test:
 
-1. Read the original fault relay state from `PIN_FLT_NO` and `PIN_FLT_NC`.
-2. Set `PIN_ALM_TEST_L` / GPIO25 HIGH.
-3. Wait for the alarm settle time while confirming the fault relay state does not change.
-4. Confirm the fault relay state is still unchanged.
-5. Hold the output active for `ALARM_TEST_DURATION_MS` while monitoring that the fault relay remains unchanged.
-6. Set GPIO25 LOW.
-7. Wait `ALARM_INTERTEST_DELAY_MS`.
-8. Return `PASS` only if all checks succeed.
+Same current-delta flow as alarm positive, but using `PIN_ALM_TEST_L` / GPIO25.
 
-The alarm output is always switched LOW before the test returns, including failure paths.
+The alarm output and EOL open-circuit output are always switched LOW before the test returns.
 
 Example serial output:
 

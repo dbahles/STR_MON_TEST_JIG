@@ -21,21 +21,24 @@ Use this checklist when the real test jig hardware arrives. Keep serial monitor 
 - [ ] Confirm boot banner shows simulation mode `OFF`.
 - [ ] Send `H` and confirm command help appears.
 - [ ] Send `L` and confirm the test order:
-  - Power Test
-  - Alarm Positive Test
-  - Alarm Negative Test
   - Open Circuit Test
   - Short Circuit Test
+  - Alarm Positive Test
+  - Alarm Negative Test
   - Fault Relay Test
+  - Power Test, if `ENABLE_POWER_TEST` is enabled.
 
 ## Basic IO Validation
 
 - [ ] Send `S` with no DUT fitted and record input states.
+- [ ] Confirm READY LED slowly flashes with no DUT fitted.
 - [ ] Fit DUT and confirm READY state after debounce.
-- [ ] Confirm READY LED turns on.
+- [ ] Confirm READY LED turns solid on.
 - [ ] Confirm buzzer gives a short insertion beep.
 - [ ] Confirm TEST switch reads released when idle and pressed when held. The firmware expects GPIO16 LOW when pressed.
 - [ ] Press TEST button and confirm test starts only on a fresh press.
+- [ ] Confirm buzzer gives a short start beep.
+- [ ] Confirm PASS and FAIL LEDs alternate while tests are running.
 - [ ] Power-cycle with TEST held down and confirm test does not auto-start.
 - [ ] Remove DUT and confirm state returns to `IDLE`.
 
@@ -88,7 +91,10 @@ Use this checklist when the real test jig hardware arrives. Keep serial monitor 
 
 - [ ] Confirm PASS LED turns on after all tests pass.
 - [ ] Confirm FAIL LED turns on after a forced or real failure.
+- [ ] Confirm PASS or FAIL result gives a short double beep.
 - [ ] Confirm PASS/FAIL remains displayed until DUT removal.
+- [ ] With DUT still fitted after PASS/FAIL, release TEST, then hold TEST for 1.5 seconds and confirm the jig returns to `READY`.
+- [ ] Press TEST again and confirm a second run can start without removing the DUT.
 - [ ] Send `R` and confirm state returns to `IDLE`.
 - [ ] Confirm all test outputs return LOW after pass, fail, timeout, or reset.
 

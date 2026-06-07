@@ -13,4 +13,5 @@ namespace LedManager
     void showPass();
     void showFail();
     void showError();
+    void update();
 }

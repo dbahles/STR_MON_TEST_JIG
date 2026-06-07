@@ -6,9 +6,6 @@ namespace
 {
     void printPrefix(const char *level)
     {
-        Serial.print('[');
-        Serial.print(millis());
-        Serial.print(" ms] ");
         Serial.print(level);
         Serial.print(": ");
     }
@@ -40,19 +37,19 @@ namespace SerialLogger
 
     void info(const char *message)
     {
-        printPrefix("INFO");
+        printPrefix("  Info");
         Serial.println(message);
     }
 
     void error(const char *message)
     {
-        printPrefix("ERROR");
+        printPrefix("  ERROR");
         Serial.println(message);
     }
 
     void stateChange(SystemState fromState, SystemState toState, const char *reason)
     {
-        printPrefix("STATE");
+        printPrefix("State");
         Serial.print(systemStateToString(fromState));
         Serial.print(" -> ");
         Serial.print(systemStateToString(toState));
@@ -66,11 +63,17 @@ namespace SerialLogger
         Serial.println();
     }
 
+    void testStart(TestId testId)
+    {
+        Serial.println();
+        Serial.println("--------------------------------");
+        Serial.print("Test: ");
+        Serial.println(testIdToString(testId));
+    }
+
     void testResult(TestId testId, TestResult result)
     {
-        printPrefix("TEST");
-        Serial.print(testIdToString(testId));
-        Serial.print(" -> ");
+        Serial.print("  Result: ");
         Serial.println(testResultToString(result));
     }
 }

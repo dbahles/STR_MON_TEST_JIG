@@ -2,6 +2,10 @@
 
 ## Unreleased
 
+- Reordered the active automated sequence so open-circuit and short-circuit tests run before alarm positive and alarm negative tests.
+- Added operator feedback patterns: slow READY LED flash when no DUT is present, solid READY when detected, alternating PASS/FAIL LEDs while testing, start beep, and result double beep.
+- Added TEST button long-hold retest support: after PASS or FAIL, release then hold TEST for 1.5 seconds to return to READY without removing the DUT.
+- Tightened open/short fault relay validation so tests require a stable inverted NC/NO state instead of passing on any contact change such as temporary `LOW/LOW`.
 - Milestone: hardware bring-up firmware now has normal jig, GPIO hardware-test, and INA-test PlatformIO environments.
 - Moved the current-sense ADC input to GPIO36 after finding the INA output had accidentally been wired to the ESP32 EN pin.
 - Added INA240 current reading support using a 0.5 ohm shunt and provisional gain/zero calibration constants.

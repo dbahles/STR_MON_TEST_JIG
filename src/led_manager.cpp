@@ -1,13 +1,32 @@
 #include "led_manager.h"
 
 #include <Arduino.h>
+#include "config.h"
 #include "pinmap.h"
 
 namespace
 {
+    enum class DisplayMode
+    {
+        STATIC,
+        IDLE_FLASH,
+        RUNNING_FLASH
+    };
+
+    DisplayMode displayMode = DisplayMode::STATIC;
+    bool flashPhase = false;
+    unsigned long lastFlashAt = 0;
+
     void writeLed(uint8_t pin, bool isOn)
     {
         digitalWrite(pin, isOn ? HIGH : LOW);
+    }
+
+    void setMode(DisplayMode mode)
+    {
+        displayMode = mode;
+        flashPhase = false;
+        lastFlashAt = millis();
     }
 }
 
@@ -38,6 +57,7 @@ namespace LedManager
 
     void setIndicators(bool readyOn, bool passOn, bool failOn)
     {
+        setMode(DisplayMode::STATIC);
         setReady(readyOn);
         setPass(passOn);
         setFail(failOn);
@@ -45,7 +65,10 @@ namespace LedManager
 
     void showIdle()
     {
-        setIndicators(false, false, false);
+        setMode(DisplayMode::IDLE_FLASH);
+        setReady(false);
+        setPass(false);
+        setFail(false);
     }
 
     void showReady()
@@ -55,7 +78,10 @@ namespace LedManager
 
     void showRunning()
     {
-        setIndicators(false, false, false);
+        setMode(DisplayMode::RUNNING_FLASH);
+        setReady(false);
+        setPass(true);
+        setFail(false);
     }
 
     void showPass()
@@ -71,5 +97,36 @@ namespace LedManager
     void showError()
     {
         setIndicators(true, false, true);
+    }
+
+    void update()
+    {
+        const unsigned long now = millis();
+
+        if (displayMode == DisplayMode::IDLE_FLASH)
+        {
+            if ((now - lastFlashAt) >= IDLE_READY_LED_FLASH_MS)
+            {
+                lastFlashAt = now;
+                flashPhase = !flashPhase;
+                setReady(flashPhase);
+                setPass(false);
+                setFail(false);
+            }
+
+            return;
+        }
+
+        if (displayMode == DisplayMode::RUNNING_FLASH)
+        {
+            if ((now - lastFlashAt) >= RUNNING_RESULT_LED_FLASH_MS)
+            {
+                lastFlashAt = now;
+                flashPhase = !flashPhase;
+                setReady(false);
+                setPass(flashPhase);
+                setFail(!flashPhase);
+            }
+        }
     }
 }

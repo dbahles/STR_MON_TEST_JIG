@@ -65,6 +65,8 @@ namespace
     bool testButtonArmed = false;
     bool testButtonPressEvent = false;
     unsigned long testButtonInputChangedAt = 0;
+    unsigned long testButtonStableChangedAt = 0;
+    bool resultResetArmed = false;
 
     void changeState(SystemState nextState, const char *reason)
     {
@@ -86,8 +88,8 @@ namespace
 
     void setupInputs()
     {
-        pinMode(PIN_FLT_NC, INPUT_PULLDOWN);
-        pinMode(PIN_FLT_NO, INPUT_PULLDOWN);
+        pinMode(PIN_FLT_NC, INPUT);
+        pinMode(PIN_FLT_NO, INPUT);
         pinMode(PIN_FLT_IN, INPUT_PULLUP);
         pinMode(PIN_TEST_SW, INPUT);
     }
@@ -133,6 +135,7 @@ namespace
         }
 
         stableTestButtonPressed = rawPressed;
+        testButtonStableChangedAt = millis();
 
         if (!stableTestButtonPressed)
         {
@@ -158,6 +161,12 @@ namespace
 
         testButtonPressEvent = false;
         return true;
+    }
+
+    bool isTestButtonHeldFor(unsigned long durationMs)
+    {
+        return stableTestButtonPressed &&
+               (millis() - testButtonStableChangedAt) >= durationMs;
     }
 
     void updateDutPresence()
@@ -229,6 +238,11 @@ namespace
         Buzzer::beep(BUZZER_CONFIRM_MS);
     }
 
+    void buzzerResultBeep()
+    {
+        Buzzer::doubleBeep(BUZZER_RESULT_BEEP_MS, BUZZER_RESULT_GAP_MS);
+    }
+
     void setManualAlarmOutputs(bool positiveOn, bool negativeOn, const char *reason)
     {
         const bool changed = manualAlarmPositiveOn != positiveOn ||
@@ -260,6 +274,7 @@ namespace
     void completeTestRun(TestResult result)
     {
         manualTestMode = false;
+        resultResetArmed = false;
         lastTestCompletedAt = millis();
 
         if (result == TestResult::PASS)
@@ -272,6 +287,7 @@ namespace
         }
 
         setIndicators(currentState);
+        buzzerResultBeep();
     }
 
     bool isTestRestartLockedOut()
@@ -285,6 +301,7 @@ namespace
         holdResultForSerialDebug = false;
         manualTestMode = false;
         manualTestIndex = 0;
+        resultResetArmed = false;
         setManualAlarmOutputs(false, false, "OFF");
         changeState(SystemState::IDLE, reason);
         setIndicators(currentState);
@@ -300,10 +317,12 @@ namespace
 
         manualTestMode = false;
         manualTestIndex = 0;
+        resultResetArmed = false;
         setManualAlarmOutputs(false, false, "OFF");
         holdResultForSerialDebug = holdResult;
         Serial.print("Starting test run: ");
         Serial.println(reason);
+        buzzerBeep();
         changeState(SystemState::TEST_RUNNING, reason);
         setIndicators(currentState);
     }
@@ -329,6 +348,7 @@ namespace
 
         manualTestMode = true;
         manualTestIndex = 0;
+        resultResetArmed = false;
         holdResultForSerialDebug = false;
         changeState(SystemState::READY, reason);
         setIndicators(currentState);
@@ -347,13 +367,16 @@ namespace
         if (manualTestIndex >= testManager.getTestCount())
         {
             manualTestMode = false;
+            resultResetArmed = false;
             changeState(SystemState::PASS, "Manual test sequence complete");
             setIndicators(currentState);
+            buzzerResultBeep();
             return;
         }
 
         const TestId testId = testManager.getTestId(manualTestIndex);
 
+        buzzerBeep();
         changeState(SystemState::TEST_RUNNING, reason);
         setIndicators(currentState);
 
@@ -368,8 +391,10 @@ namespace
         if (result != TestResult::PASS)
         {
             manualTestMode = false;
+            resultResetArmed = false;
             changeState(SystemState::FAIL, "Manual test step failed");
             setIndicators(currentState);
+            buzzerResultBeep();
             return;
         }
 
@@ -377,8 +402,10 @@ namespace
         if (manualTestIndex >= testManager.getTestCount())
         {
             manualTestMode = false;
+            resultResetArmed = false;
             changeState(SystemState::PASS, "Manual test sequence complete");
             setIndicators(currentState);
+            buzzerResultBeep();
             return;
         }
 
@@ -505,12 +532,14 @@ namespace
 
         case 'P':
             holdResultForSerialDebug = true;
+            resultResetArmed = false;
             changeState(SystemState::PASS, "Serial command P");
             setIndicators(currentState);
             break;
 
         case 'F':
             holdResultForSerialDebug = true;
+            resultResetArmed = false;
             changeState(SystemState::FAIL, "Serial command F");
             setIndicators(currentState);
             break;
@@ -596,6 +625,23 @@ namespace
             {
                 returnToIdle("DUT removed");
             }
+            else if (isDutInserted())
+            {
+                if (!stableTestButtonPressed)
+                {
+                    resultResetArmed = true;
+                }
+                else if (resultResetArmed && isTestButtonHeldFor(TEST_RESULT_RESET_HOLD_MS))
+                {
+                    resultResetArmed = false;
+                    holdResultForSerialDebug = false;
+                    lastTestCompletedAt = 0;
+                    changeState(SystemState::READY, "TEST held to prepare retest");
+                    setIndicators(currentState);
+                    buzzerBeep();
+                    SerialLogger::info("Ready for retest without removing DUT");
+                }
+            }
             break;
 
         case SystemState::ERROR_STATE:
@@ -608,29 +654,17 @@ namespace
 void setup()
 {
     SerialLogger::begin(SERIAL_BAUDRATE);
-    Serial.println("BOOT: setup start");
-    Serial.flush();
     delay(100);
 
     SerialLogger::printBootBanner();
-    Serial.println("BOOT: setup inputs");
-    Serial.flush();
     setupInputs();
 
-    Serial.println("BOOT: setup LEDs");
-    Serial.flush();
     LedManager::begin();
 
-    Serial.println("BOOT: setup buzzer");
-    Serial.flush();
     Buzzer::begin();
 
-    Serial.println("BOOT: setup test manager");
-    Serial.flush();
     testManager.begin();
 
-    Serial.println("BOOT: setup indicators");
-    Serial.flush();
     setIndicators(currentState);
 
     SerialLogger::info("System ready. Send H for serial command help.");
@@ -640,6 +674,7 @@ void loop()
 {
     handleSerialCommands();
     handleStateMachine();
+    LedManager::update();
     delay(LOOP_DELAY_MS);
 }
 

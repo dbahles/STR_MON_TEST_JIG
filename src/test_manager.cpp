@@ -4,6 +4,7 @@
 #include <math.h>
 #include "adc_manager.h"
 #include "config.h"
+#include "led_manager.h"
 #include "pinmap.h"
 #include "relay_control.h"
 #include "serial_logger.h"
@@ -14,12 +15,12 @@ namespace
 #if ENABLE_POWER_TEST
         TestId::POWER_TEST,
 #endif
+        TestId::OPEN_CIRCUIT_TEST,
+        TestId::SHORT_CIRCUIT_TEST,
 #if ENABLE_ALARM_OUTPUT_TESTS
         TestId::ALARM_POSITIVE_TEST,
         TestId::ALARM_NEGATIVE_TEST,
 #endif
-        TestId::OPEN_CIRCUIT_TEST,
-        TestId::SHORT_CIRCUIT_TEST,
         TestId::FAULT_RELAY_TEST};
 
     const uint8_t TEST_SEQUENCE_COUNT = sizeof(TEST_SEQUENCE) / sizeof(TEST_SEQUENCE[0]);
@@ -44,8 +45,20 @@ namespace
                left.noHigh == right.noHigh;
     }
 
+    bool isComplementaryState(FaultRelayState state)
+    {
+        return state.ncHigh != state.noHigh;
+    }
+
+    bool isInvertedState(FaultRelayState originalState, FaultRelayState currentState)
+    {
+        return currentState.ncHigh == !originalState.ncHigh &&
+               currentState.noHigh == !originalState.noHigh;
+    }
+
     void logFaultRelayState(const char *label, FaultRelayState state)
     {
+        Serial.print("  ");
         Serial.print(label);
         Serial.print(" NC=");
         Serial.print(state.ncHigh ? "HIGH" : "LOW");
@@ -53,20 +66,51 @@ namespace
         Serial.println(state.noHigh ? "HIGH" : "LOW");
     }
 
-    bool waitForRelayChange(FaultRelayState originalState, unsigned long timeoutMs)
+    void serviceDelay(unsigned long durationMs)
     {
         const unsigned long startedAt = millis();
+
+        while ((millis() - startedAt) < durationMs)
+        {
+            LedManager::update();
+            delay(FAULT_RELAY_POLL_MS);
+        }
+    }
+
+    bool waitForRelayInversion(FaultRelayState originalState, unsigned long timeoutMs)
+    {
+        const unsigned long startedAt = millis();
+        unsigned long invertedSince = 0;
+        bool loggedIntermediateState = false;
 
         while ((millis() - startedAt) < timeoutMs)
         {
             const FaultRelayState currentState = readFaultRelayState();
-            if (!statesMatch(currentState, originalState))
+            if (isInvertedState(originalState, currentState))
             {
-                logFaultRelayState("Fault relay changed:", currentState);
-                return true;
+                if (invertedSince == 0)
+                {
+                    invertedSince = millis();
+                    logFaultRelayState("Fault relay inverted:", currentState);
+                }
+
+                if ((millis() - invertedSince) >= FAULT_RELAY_STABLE_MS)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                invertedSince = 0;
+
+                if (!statesMatch(currentState, originalState) && !loggedIntermediateState)
+                {
+                    loggedIntermediateState = true;
+                    logFaultRelayState("Fault relay intermediate state:", currentState);
+                }
             }
 
-            delay(FAULT_RELAY_POLL_MS);
+            serviceDelay(FAULT_RELAY_POLL_MS);
         }
 
         return false;
@@ -75,17 +119,30 @@ namespace
     bool waitForRelayRestore(FaultRelayState originalState, unsigned long timeoutMs)
     {
         const unsigned long startedAt = millis();
+        unsigned long restoredSince = 0;
 
         while ((millis() - startedAt) < timeoutMs)
         {
             const FaultRelayState currentState = readFaultRelayState();
             if (statesMatch(currentState, originalState))
             {
-                logFaultRelayState("Fault relay restored:", currentState);
-                return true;
+                if (restoredSince == 0)
+                {
+                    restoredSince = millis();
+                    logFaultRelayState("Fault relay restored:", currentState);
+                }
+
+                if ((millis() - restoredSince) >= FAULT_RELAY_STABLE_MS)
+                {
+                    return true;
+                }
+            }
+            else
+            {
+                restoredSince = 0;
             }
 
-            delay(FAULT_RELAY_POLL_MS);
+            serviceDelay(FAULT_RELAY_POLL_MS);
         }
 
         return false;
@@ -114,7 +171,7 @@ namespace
                 return false;
             }
 
-            delay(FAULT_RELAY_POLL_MS);
+            serviceDelay(FAULT_RELAY_POLL_MS);
         }
 
         return true;
@@ -129,7 +186,7 @@ namespace
 
     void logDutVoltage(float voltage)
     {
-        Serial.print("DUT Power Voltage = ");
+        Serial.print("  DUT power voltage: ");
         Serial.print(voltage, 2);
         Serial.println(" V");
     }
@@ -137,8 +194,9 @@ namespace
     float readAndLogCurrent(const char *label)
     {
         const float currentMa = AdcManager::readCurrentMilliamps();
+        Serial.print("  ");
         Serial.print(label);
-        Serial.print(" current = ");
+        Serial.print(" current: ");
         Serial.print(currentMa, 2);
         Serial.println(" mA");
         return currentMa;
@@ -161,7 +219,7 @@ namespace
     {
         while ((millis() - startedAt) < minimumMs)
         {
-            delay(FAULT_RELAY_POLL_MS);
+            serviceDelay(FAULT_RELAY_POLL_MS);
         }
     }
 }
@@ -187,7 +245,7 @@ TestResult TestManager::runAllTests()
 
         if (TEST_STEP_DELAY_MS > 0 && (index + 1) < TEST_SEQUENCE_COUNT)
         {
-            delay(TEST_STEP_DELAY_MS);
+            serviceDelay(TEST_STEP_DELAY_MS);
         }
     }
 
@@ -230,6 +288,8 @@ TestResult TestManager::runSingleTest(TestId testId)
 {
     TestResult result = TestResult::ERROR;
 
+    SerialLogger::testStart(testId);
+
     switch (testId)
     {
     case TestId::POWER_TEST:
@@ -267,24 +327,24 @@ TestResult TestManager::runAlarmOutputTest(
     const char *activateMessage,
     const char *restoreMessage)
 {
-    SerialLogger::info(testName);
+    (void)testName;
 
     TestResult result = TestResult::PASS;
 
     RelayControl::setOpenCircuitTest(false);
     setAlarmOutput(false);
-    delay(ALARM_CURRENT_SETTLE_MS);
+    serviceDelay(ALARM_CURRENT_SETTLE_MS);
 
     const float baselineCurrent = readAndLogCurrent("Baseline");
 
     SerialLogger::info(activateMessage);
     setAlarmOutput(true);
-    delay(ALARM_CURRENT_SETTLE_MS);
+    serviceDelay(ALARM_CURRENT_SETTLE_MS);
 
     const float alarmCurrent = readAndLogCurrent("Alarm active");
     const float alarmIncrease = alarmCurrent - baselineCurrent;
 
-    Serial.print("Alarm current increase = ");
+    Serial.print("  Alarm current increase: ");
     Serial.print(alarmIncrease, 2);
     Serial.println(" mA");
 
@@ -298,12 +358,12 @@ TestResult TestManager::runAlarmOutputTest(
     {
         SerialLogger::info("Setting GPIO26 HIGH to apply open-circuit fault during alarm");
         RelayControl::setOpenCircuitTest(true);
-        delay(ALARM_CURRENT_SETTLE_MS);
+        serviceDelay(ALARM_CURRENT_SETTLE_MS);
 
         const float alarmOcCurrent = readAndLogCurrent("Alarm + OC fault");
         const float ocDrop = alarmCurrent - alarmOcCurrent;
 
-        Serial.print("OC fault current drop = ");
+        Serial.print("  OC fault current drop: ");
         Serial.print(ocDrop, 2);
         Serial.println(" mA");
 
@@ -316,7 +376,7 @@ TestResult TestManager::runAlarmOutputTest(
 
     SerialLogger::info("Setting GPIO26 LOW and checking alarm current restores");
     RelayControl::setOpenCircuitTest(false);
-    delay(ALARM_CURRENT_SETTLE_MS);
+    serviceDelay(ALARM_CURRENT_SETTLE_MS);
 
     if (result == TestResult::PASS)
     {
@@ -330,7 +390,7 @@ TestResult TestManager::runAlarmOutputTest(
 
     SerialLogger::info(restoreMessage);
     setAlarmOutput(false);
-    delay(ALARM_CURRENT_SETTLE_MS);
+    serviceDelay(ALARM_CURRENT_SETTLE_MS);
 
     if (result == TestResult::PASS)
     {
@@ -344,7 +404,7 @@ TestResult TestManager::runAlarmOutputTest(
 
     RelayControl::setOpenCircuitTest(false);
     setAlarmOutput(false);
-    delay(ALARM_INTERTEST_DELAY_MS);
+    serviceDelay(ALARM_INTERTEST_DELAY_MS);
 
     return result;
 }
@@ -355,21 +415,28 @@ TestResult TestManager::runFaultSimulationTest(
     const char *activateMessage,
     const char *restoreMessage)
 {
-    SerialLogger::info(testName);
+    (void)testName;
 
     const FaultRelayState originalState = readFaultRelayState();
     logFaultRelayState("Original fault relay state:", originalState);
 
+    if (!isComplementaryState(originalState))
+    {
+        SerialLogger::error("Fault relay original NC and NO inputs are not complementary");
+        return TestResult::FAIL;
+    }
+
     SerialLogger::info(activateMessage);
     const unsigned long outputActivatedAt = millis();
     setFaultOutput(true);
+    serviceDelay(FAULT_RELAY_SETTLE_BEFORE_READ_MS);
 
-    if (!waitForRelayChange(originalState, FAULT_RELAY_TIMEOUT_MS))
+    if (!waitForRelayInversion(originalState, FAULT_RELAY_TIMEOUT_MS))
     {
-        SerialLogger::error("Fault relay did not change before timeout");
+        SerialLogger::error("Fault relay did not reach inverted complementary state before timeout");
         waitUntilMinimumElapsed(outputActivatedAt, TEST_OUTPUT_VISIBLE_ON_MS);
         setFaultOutput(false);
-        delay(TEST_OUTPUT_VISIBLE_OFF_MS);
+        serviceDelay(TEST_OUTPUT_VISIBLE_OFF_MS);
         return TestResult::TIMEOUT;
     }
 
@@ -377,7 +444,7 @@ TestResult TestManager::runFaultSimulationTest(
 
     SerialLogger::info(restoreMessage);
     setFaultOutput(false);
-    delay(TEST_OUTPUT_VISIBLE_OFF_MS);
+    serviceDelay(FAULT_RELAY_SETTLE_BEFORE_READ_MS);
 
     if (!waitForRelayRestore(originalState, FAULT_RELAY_TIMEOUT_MS))
     {
@@ -385,13 +452,13 @@ TestResult TestManager::runFaultSimulationTest(
         return TestResult::FAIL;
     }
 
+    serviceDelay(TEST_OUTPUT_VISIBLE_OFF_MS);
+
     return TestResult::PASS;
 }
 
 TestResult TestManager::runPowerTest()
 {
-    SerialLogger::info("Power baseline test started");
-
     const float dutVoltage = AdcManager::readDutVoltage();
     logDutVoltage(dutVoltage);
 
@@ -443,11 +510,9 @@ TestResult TestManager::runShortCircuitTest()
 TestResult TestManager::runFaultRelayTest()
 {
 #if SIMULATION_MODE
-    delay(250);
+    serviceDelay(250);
     return TestResult::PASS;
 #else
-    SerialLogger::info("Fault Relay Contact Test Started");
-
     const FaultRelayState state = readFaultRelayState();
     logFaultRelayState("Fault relay contact state:", state);
 

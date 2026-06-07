@@ -11,5 +11,6 @@ namespace SerialLogger
     void info(const char *message);
     void error(const char *message);
     void stateChange(SystemState fromState, SystemState toState, const char *reason);
+    void testStart(TestId testId);
     void testResult(TestId testId, TestResult result);
 }
