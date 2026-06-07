@@ -11,33 +11,6 @@
 #include "system_state.h"
 #include "test_manager.h"
 
-#define SIMPLE_HELLO_WORLD_DIAGNOSTIC 0
-
-#if SIMPLE_HELLO_WORLD_DIAGNOSTIC
-
-void setup()
-{
-    Serial.begin(115200);
-    delay(1000);
-    Serial.println();
-    Serial.println("Hello world from STR-MON test jig ESP32");
-    Serial.println("Diagnostic firmware: no jig GPIOs are configured");
-}
-
-void loop()
-{
-    static unsigned long lastPrintAt = 0;
-
-    if ((millis() - lastPrintAt) >= 1000)
-    {
-        lastPrintAt = millis();
-        Serial.print("Alive ms=");
-        Serial.println(millis());
-    }
-}
-
-#else
-
 namespace
 {
     enum class DutPresence
@@ -677,5 +650,3 @@ void loop()
     LedManager::update();
     delay(LOOP_DELAY_MS);
 }
-
-#endif

@@ -4,11 +4,7 @@ Serial port settings:
 
 - Baud: `115200`
 - Line ending: newline / LF is recommended
-- Commands are case-insensitive in the main firmware unless noted
-
-## Main Jig Firmware
-
-Environment: `esp32doit-devkit-v1`
+- Commands are case-insensitive
 
 | Command | Action |
 | --- | --- |
@@ -22,38 +18,6 @@ Environment: `esp32doit-devkit-v1`
 | `A` | Turn manual alarm positive output on. |
 | `B` | Turn manual alarm negative output on. |
 | `O` | Turn manual alarm outputs off. |
-
-## Hardware Test Firmware
-
-Environment: `hardware-test`
-
-This firmware is for direct jig IO checks without the normal state machine.
-
-Example output commands:
-
-- `D19_H` sets GPIO19 HIGH.
-- `D19_L` sets GPIO19 LOW.
-
-Use `S` or `STATUS` to print input states. Inputs are reported in the form `D32 H` or `D32 L`.
-
-## INA Test Firmware
-
-Environment: `ina-test`
-
-This firmware isolates the INA240 / GPIO36 ADC path and gives manual control of selected alarm test outputs.
-
-| Command | Action |
-| --- | --- |
-| `S` | Take one INA/current reading. |
-| `C` | Take a longer averaged calibration reading. |
-| `Z` | Capture the present voltage as zero-current offset. |
-| `K <mA>` | Calculate an effective gain from a known current. |
-| `P` | Scan the available ADC pins and print raw/voltage readings. |
-| `A` | Toggle automatic 1 second readings. |
-| `+` | Toggle alarm positive test output GPIO33. |
-| `O` | Toggle EOL open-circuit output GPIO26. |
-| `X` | Turn all INA-test outputs off. |
-| `H` or `?` | Print command help. |
 
 ## Notes
 

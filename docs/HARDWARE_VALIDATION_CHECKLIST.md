@@ -17,7 +17,7 @@ Use this checklist when the real test jig hardware arrives. Keep serial monitor 
 - [ ] Build firmware with `pio run`.
 - [ ] Upload firmware to ESP32.
 - [ ] Open serial monitor at 115200 baud.
-- [ ] Confirm boot banner shows firmware version `0.6.0`.
+- [ ] Confirm boot banner shows firmware version `0.7.0`.
 - [ ] Confirm boot banner shows simulation mode `OFF`.
 - [ ] Send `H` and confirm command help appears.
 - [ ] Send `L` and confirm the test order:
@@ -46,13 +46,14 @@ Use this checklist when the real test jig hardware arrives. Keep serial monitor 
 
 - [ ] Fit DUT and wait for `READY`.
 - [ ] Send `M` and confirm manual test mode prints the next test name.
-- [ ] Press TEST and confirm only the Power Test runs.
+- [ ] Press TEST and confirm only the Open Circuit Test runs.
 - [ ] Press TEST again or send `N` and confirm only the next test runs.
 - [ ] Continue stepping until `PASS`, or record the first failed step and serial output.
 - [ ] Send `R` and confirm manual mode exits and the state returns to `IDLE`.
 
 ## Power Sense Validation
 
+- [ ] Enable `ENABLE_POWER_TEST` before validating this section.
 - [ ] Measure DUT voltage with a calibrated multimeter.
 - [ ] Run the Power Test and record logged DUT voltage.
 - [ ] Compare logged voltage with multimeter reading.

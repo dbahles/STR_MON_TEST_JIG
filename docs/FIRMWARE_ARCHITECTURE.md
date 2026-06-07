@@ -103,7 +103,7 @@ Manual test mode is intended for first-hardware validation. Fit the DUT, wait fo
 
 ## Baseline Power Test
 
-The first automated test is the baseline DUT power check.
+The baseline DUT power check is currently disabled with `ENABLE_POWER_TEST 0`.
 
 Power test sequence:
 
@@ -119,7 +119,7 @@ Current configurable values:
 | --- | ---: |
 | `DUT_MIN_VOLTAGE` | 22.0 V |
 | `DUT_MAX_VOLTAGE` | 28.0 V |
-| `ADC_SAMPLE_COUNT` | 10 samples |
+| `ADC_SAMPLE_COUNT` | 32 samples |
 | `ADC_REFERENCE_VOLTAGE` | 3.3 V |
 | `DUT_POWER_ADC_SCALE` | 11.0 |
 
@@ -191,50 +191,61 @@ Example serial output:
 ```text
 ================================
  STR-MON Automated Test Jig
- Firmware version: 0.6.0
+ Firmware version: 0.7.0
  Simulation mode: OFF
  Development mode: ON
  Serial baud: 115200
 ================================
-[120 ms] INFO: Test manager initialized
-[121 ms] INFO: System ready. Send H for serial command help.
+  Info: Test manager initialized
+  Info: System ready. Send H for serial command help.
 Command received: T
-[8020 ms] STATE: IDLE -> TEST_RUNNING | Serial command T
-[8021 ms] INFO: Starting automated test sequence
-[8022 ms] INFO: Power baseline test started
-DUT Power Voltage = 24.00 V
-[8272 ms] TEST: Power Test -> PASS
-[8523 ms] INFO: Alarm Positive Test Started
-Initial fault relay state: NC=LOW NO=HIGH
-[8524 ms] INFO: GPIO33 HIGH
-[10040 ms] INFO: Holding alarm output active
-[11541 ms] INFO: GPIO33 LOW
-[12042 ms] TEST: Alarm Positive Test -> PASS
-[12043 ms] INFO: Alarm Negative Test Started
-Initial fault relay state: NC=LOW NO=HIGH
-[12044 ms] INFO: GPIO25 HIGH
-[13560 ms] INFO: Holding alarm output active
-[15061 ms] INFO: GPIO25 LOW
-[15562 ms] TEST: Alarm Negative Test -> PASS
-[15563 ms] INFO: Starting open circuit test
-Original fault relay state: NC=LOW NO=HIGH
-[15564 ms] INFO: Setting GPIO26 HIGH to simulate open circuit fault
-Fault relay changed: NC=HIGH NO=LOW
-[15680 ms] INFO: Setting GPIO26 LOW and checking relay restore
-Fault relay restored: NC=LOW NO=HIGH
-[15690 ms] TEST: Open Circuit Test -> PASS
-[15691 ms] INFO: Starting short circuit test
-Original fault relay state: NC=LOW NO=HIGH
-[15692 ms] INFO: Setting GPIO27 HIGH to simulate short circuit fault
-Fault relay changed: NC=HIGH NO=LOW
-[15800 ms] INFO: Setting GPIO27 LOW and checking relay restore
-Fault relay restored: NC=LOW NO=HIGH
-[15810 ms] TEST: Short Circuit Test -> PASS
-[16061 ms] INFO: Fault Relay Contact Test Started
-Fault relay contact state: NC=LOW NO=HIGH
-[16062 ms] TEST: Fault Relay Test -> PASS
-[16062 ms] INFO: Automated test sequence complete
-[16063 ms] STATE: TEST_RUNNING -> PASS | Automated test sequence passed
+Starting test run: Serial command T
+State: IDLE -> TEST_RUNNING | Serial command T
+  Info: Starting automated test sequence
+
+--------------------------------
+Test: Open Circuit Test
+  Original fault relay state: NC=LOW NO=HIGH
+  Info: Setting GPIO26 HIGH to simulate open circuit fault
+  Fault relay inverted: NC=HIGH NO=LOW
+  Info: Setting GPIO26 LOW and checking relay restore
+  Fault relay restored: NC=LOW NO=HIGH
+  Result: PASS
+
+--------------------------------
+Test: Short Circuit Test
+  Original fault relay state: NC=LOW NO=HIGH
+  Info: Setting GPIO27 HIGH to simulate short circuit fault
+  Fault relay inverted: NC=HIGH NO=LOW
+  Info: Setting GPIO27 LOW and checking relay restore
+  Fault relay restored: NC=LOW NO=HIGH
+  Result: PASS
+
+--------------------------------
+Test: Alarm Positive Test
+  Baseline current: 0.00 mA
+  Info: GPIO33 HIGH
+  Alarm active current: 40.00 mA
+  Alarm current increase: 40.00 mA
+  Info: Setting GPIO26 HIGH to apply open-circuit fault during alarm
+  Alarm + OC fault current: 27.00 mA
+  OC fault current drop: 13.00 mA
+  Info: Setting GPIO26 LOW and checking alarm current restores
+  Alarm restored current: 40.00 mA
+  Info: GPIO33 LOW
+  Alarm off final current: 0.00 mA
+  Result: PASS
+
+--------------------------------
+Test: Alarm Negative Test
+  Result: PASS
+
+--------------------------------
+Test: Fault Relay Test
+  Fault relay contact state: NC=LOW NO=HIGH
+  Result: PASS
+  Info: Automated test sequence complete
+State: TEST_RUNNING -> PASS | Automated test sequence passed
 ```
 
 ## Debugging Workflow
@@ -259,7 +270,7 @@ Recommended early bench workflow:
 | `PIN_FLT_NO` | GPIO22 | Input | Fault relay NO contact. HIGH means DUT present. |
 | `PIN_FLT_NC` | GPIO23 | Input | Fault relay NC contact. HIGH means DUT present. |
 | TEST pushbutton | GPIO16 | Input | External pull-up. LOW means pressed. |
-| Power sense | GPIO36 | Input | Future ADC power measurement. |
+| INA current sense | GPIO36 | Input | INA240 output, ADC input only. |
 | Fault input | GPIO32 | Input | Active LOW fault input. Uses internal pull-up. |
 
 | Alarm test low / negative | GPIO25 | Output | Alarm negative test output. |

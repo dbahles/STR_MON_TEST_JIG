@@ -148,35 +148,6 @@ namespace
         return false;
     }
 
-    bool isFaultRelayStateValid(FaultRelayState originalState)
-    {
-        const FaultRelayState currentState = readFaultRelayState();
-        if (!statesMatch(currentState, originalState))
-        {
-            logFaultRelayState("Fault relay changed unexpectedly:", currentState);
-            return false;
-        }
-
-        return true;
-    }
-
-    bool waitWithRelayStable(FaultRelayState originalState, unsigned long durationMs)
-    {
-        const unsigned long startedAt = millis();
-
-        while ((millis() - startedAt) < durationMs)
-        {
-            if (!isFaultRelayStateValid(originalState))
-            {
-                return false;
-            }
-
-            serviceDelay(FAULT_RELAY_POLL_MS);
-        }
-
-        return true;
-    }
-
     bool isDutVoltageValid(float voltage)
     {
         return !isnan(voltage) &&
@@ -322,13 +293,10 @@ TestResult TestManager::runSingleTest(TestId testId)
 }
 
 TestResult TestManager::runAlarmOutputTest(
-    const char *testName,
     void (*setAlarmOutput)(bool),
     const char *activateMessage,
     const char *restoreMessage)
 {
-    (void)testName;
-
     TestResult result = TestResult::PASS;
 
     RelayControl::setOpenCircuitTest(false);
@@ -410,13 +378,10 @@ TestResult TestManager::runAlarmOutputTest(
 }
 
 TestResult TestManager::runFaultSimulationTest(
-    const char *testName,
     void (*setFaultOutput)(bool),
     const char *activateMessage,
     const char *restoreMessage)
 {
-    (void)testName;
-
     const FaultRelayState originalState = readFaultRelayState();
     logFaultRelayState("Original fault relay state:", originalState);
 
@@ -474,7 +439,6 @@ TestResult TestManager::runPowerTest()
 TestResult TestManager::runAlarmPositiveTest()
 {
     return runAlarmOutputTest(
-        "Alarm Positive Test Started",
         RelayControl::setAlarmTestHigh,
         "GPIO33 HIGH",
         "GPIO33 LOW");
@@ -483,7 +447,6 @@ TestResult TestManager::runAlarmPositiveTest()
 TestResult TestManager::runAlarmNegativeTest()
 {
     return runAlarmOutputTest(
-        "Alarm Negative Test Started",
         RelayControl::setAlarmTestLow,
         "GPIO25 HIGH",
         "GPIO25 LOW");
@@ -492,7 +455,6 @@ TestResult TestManager::runAlarmNegativeTest()
 TestResult TestManager::runOpenCircuitTest()
 {
     return runFaultSimulationTest(
-        "Starting open circuit test",
         RelayControl::setOpenCircuitTest,
         "Setting GPIO26 HIGH to simulate open circuit fault",
         "Setting GPIO26 LOW and checking relay restore");
@@ -501,7 +463,6 @@ TestResult TestManager::runOpenCircuitTest()
 TestResult TestManager::runShortCircuitTest()
 {
     return runFaultSimulationTest(
-        "Starting short circuit test",
         RelayControl::setShortCircuitTest,
         "Setting GPIO27 HIGH to simulate short circuit fault",
         "Setting GPIO27 LOW and checking relay restore");
