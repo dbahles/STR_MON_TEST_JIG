@@ -1,0 +1,210 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <title>STR-MON Test Jig - Tester User Guide</title>
+  <style>
+    @page { size: A4; margin: 14mm; }
+    body {
+      font-family: Arial, Helvetica, sans-serif;
+      color: #1f2933;
+      font-size: 11pt;
+      line-height: 1.38;
+      margin: 0;
+    }
+    h1, h2, h3 { color: #16324f; margin: 0 0 8px 0; }
+    h1 { font-size: 24pt; margin-top: 4px; }
+    h2 { font-size: 15pt; margin-top: 18px; border-bottom: 1px solid #c8d2dc; padding-bottom: 4px; }
+    h3 { font-size: 12pt; margin-top: 12px; }
+    p { margin: 0 0 8px 0; }
+    ul, ol { margin-top: 4px; margin-bottom: 8px; padding-left: 22px; }
+    li { margin-bottom: 4px; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 8px 0 12px 0;
+      page-break-inside: avoid;
+    }
+    th, td {
+      border: 1px solid #cfd8e3;
+      padding: 6px 7px;
+      vertical-align: top;
+    }
+    th {
+      background: #edf3f8;
+      color: #16324f;
+      text-align: left;
+      font-weight: 700;
+    }
+    .subtitle { color: #52616f; font-size: 12pt; margin-bottom: 14px; }
+    .meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin: 12px 0 14px 0;
+    }
+    .meta div, .note, .warning, .passbox {
+      border: 1px solid #cfd8e3;
+      border-radius: 5px;
+      padding: 9px;
+      background: #f8fafc;
+    }
+    .warning {
+      border-color: #efc36a;
+      background: #fff8e7;
+    }
+    .passbox {
+      border-color: #8ccf9a;
+      background: #f1fbf3;
+    }
+    .photo-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+      margin: 8px 0 12px 0;
+    }
+    .photo-box {
+      border: 1px dashed #8aa0b5;
+      background: #f5f7fa;
+      min-height: 115px;
+      padding: 10px;
+      color: #52616f;
+      page-break-inside: avoid;
+    }
+    .photo-title {
+      color: #16324f;
+      font-weight: 700;
+      margin-bottom: 5px;
+    }
+    .checklist td:first-child {
+      width: 26px;
+      text-align: center;
+      font-weight: 700;
+    }
+    .result-pass { color: #176b31; font-weight: 700; }
+    .result-fail { color: #a11d22; font-weight: 700; }
+    .small { font-size: 9.5pt; color: #52616f; }
+    .page-break { page-break-before: always; }
+  </style>
+</head>
+<body>
+  <h1>STR-MON Test Jig</h1>
+  <p class="subtitle">Tester User Guide - production test procedure for STR-MON PCB assemblies</p>
+
+  <div class="meta">
+    <div><strong>Document type:</strong> Operator procedure<br><strong>Firmware:</strong> 0.7.0 or later</div>
+    <div><strong>Serial terminal:</strong> Optional only<br><strong>Normal result method:</strong> Jig LEDs and buzzer</div>
+  </div>
+
+  <div class="warning">
+    <strong>Important:</strong> The PCB fitted into the jig is the DUT. The serial monitor is not required for normal testing. It is only used for higher-level debug or engineering checks.
+  </div>
+
+  <h2>1. Jig Overview</h2>
+  <p>The STR-MON test jig checks the DUT using the jig contacts, clamp, TEST button, indicator LEDs, and automated firmware test sequence.</p>
+
+  <div class="photo-grid">
+    <div class="photo-box">
+      <div class="photo-title">Photo 1 - Jig Overview</div>
+      Insert overview photo showing DUT fitted in the jig and clamp position.
+    </div>
+    <div class="photo-box">
+      <div class="photo-title">Photo 2 - DUT Clamped</div>
+      Insert side/top photo showing the clamp pressing the DUT into the test position.
+    </div>
+  </div>
+
+  <h3>Controls And Indicators</h3>
+  <table>
+    <tr><th>Item</th><th>Meaning</th><th>Tester action</th></tr>
+    <tr><td>Ready LED - Green</td><td>Slow flashing means no DUT. Solid means DUT detected and ready to test.</td><td>Fit DUT until Ready becomes solid.</td></tr>
+    <tr><td>Pass LED - Red</td><td>Solid after a successful test run.</td><td>Record/pass the DUT and remove it from the jig.</td></tr>
+    <tr><td>Fail LED - Yellow</td><td>Solid after a failed test run.</td><td>Remove DUT and place it in the fail/rework area.</td></tr>
+    <tr><td>TEST button</td><td>Starts the automated test when DUT is ready.</td><td>Press once after Ready LED is solid.</td></tr>
+    <tr><td>Buzzer</td><td>Short beeps confirm DUT detected, test start, and final result.</td><td>Use with LEDs as operator feedback.</td></tr>
+  </table>
+
+  <div class="photo-grid">
+    <div class="photo-box">
+      <div class="photo-title">Photo 3 - LED And Button Close-Up</div>
+      Insert close-up showing Ready, Pass, Fail LEDs and TEST button.
+    </div>
+    <div class="photo-box">
+      <div class="photo-title">Photo 4 - Rear / Connector View</div>
+      Insert photo showing jig connector area and DUT alignment features.
+    </div>
+  </div>
+
+  <h2>2. Normal Test Procedure</h2>
+  <ol>
+    <li>Power the test jig.</li>
+    <li>Confirm the Ready LED is slowly flashing. This means no DUT is detected.</li>
+    <li>Place the STR-MON PCB into the jig pocket. Make sure it sits flat and is aligned with the locating features.</li>
+    <li>Close the clamp so the DUT is held firmly against the test contacts.</li>
+    <li>Confirm the Ready LED changes to solid on. The jig should give one short beep.</li>
+    <li>Press the TEST button once.</li>
+    <li>During testing, the Pass and Fail LEDs alternate. Do not remove or touch the DUT while testing is running.</li>
+    <li>Wait for the final LED result and buzzer indication.</li>
+    <li>Remove the DUT and sort it according to the result.</li>
+  </ol>
+
+  <h2>3. Result Interpretation</h2>
+  <table>
+    <tr><th>Jig indication</th><th>Meaning</th><th>Required action</th></tr>
+    <tr><td class="result-pass">Pass LED solid</td><td>DUT passed the automated test sequence.</td><td>Mark or move the DUT as passed.</td></tr>
+    <tr><td class="result-fail">Fail LED solid</td><td>DUT failed one or more automated checks.</td><td>Move the DUT to the fail/rework area. Do not retest repeatedly unless instructed.</td></tr>
+    <tr><td>Ready LED slow flashing</td><td>No DUT detected.</td><td>Fit a DUT before pressing TEST.</td></tr>
+    <tr><td>Ready LED solid</td><td>DUT detected and ready.</td><td>Press TEST once to start.</td></tr>
+    <tr><td>Pass and Fail LEDs alternating</td><td>Test is running.</td><td>Wait for the final result.</td></tr>
+  </table>
+
+  <h2>4. Optional Retest Without Removing DUT</h2>
+  <p>In special cases, the tester may prepare the jig for a second test without removing the DUT.</p>
+  <ol>
+    <li>Wait until the DUT has reached Pass or Fail.</li>
+    <li>Release the TEST button if it is pressed.</li>
+    <li>Hold the TEST button for approximately 1.5 seconds.</li>
+    <li>Confirm the jig returns to Ready with the Ready LED solid.</li>
+    <li>Press TEST once to run the automated test again.</li>
+  </ol>
+  <div class="note"><strong>Note:</strong> This retest function is intended for special cases only. Normal use is to remove the DUT after the first final result.</div>
+
+  <h2>5. Test Sequence</h2>
+  <p>The operator does not need to follow these steps manually; the jig performs them automatically after the TEST button is pressed.</p>
+  <table>
+    <tr><th>Order</th><th>Automated check</th><th>Purpose</th></tr>
+    <tr><td>1</td><td>Open Circuit Test</td><td>Confirms the DUT fault relay responds correctly to an open-circuit simulation.</td></tr>
+    <tr><td>2</td><td>Short Circuit Test</td><td>Confirms the DUT fault relay responds correctly to a short-circuit simulation.</td></tr>
+    <tr><td>3</td><td>Alarm Positive Test</td><td>Checks alarm positive output current behavior.</td></tr>
+    <tr><td>4</td><td>Alarm Negative Test</td><td>Checks alarm negative output current behavior.</td></tr>
+    <tr><td>5</td><td>Fault Relay Test</td><td>Confirms the fault relay contacts are in a valid complementary state.</td></tr>
+  </table>
+
+  <h2>6. Tester Checklist</h2>
+  <table class="checklist">
+    <tr><th></th><th>Check</th><th>Accept condition</th></tr>
+    <tr><td>[ ]</td><td>Jig powered</td><td>Ready LED slowly flashes with no DUT fitted.</td></tr>
+    <tr><td>[ ]</td><td>DUT fitted and clamped</td><td>Ready LED solid and one short beep.</td></tr>
+    <tr><td>[ ]</td><td>TEST pressed once</td><td>Pass and Fail LEDs alternate while testing.</td></tr>
+    <tr><td>[ ]</td><td>Final result observed</td><td>Pass LED solid or Fail LED solid.</td></tr>
+    <tr><td>[ ]</td><td>DUT sorted</td><td>Passed DUTs separated from failed/rework DUTs.</td></tr>
+  </table>
+
+  <h2>7. If Something Looks Wrong</h2>
+  <table>
+    <tr><th>Symptom</th><th>Likely cause</th><th>Action</th></tr>
+    <tr><td>Ready LED does not go solid with DUT fitted</td><td>DUT not seated, clamp not closed, dirty contacts, or no DUT detection.</td><td>Remove DUT, inspect seating/contact area, refit, and clamp again.</td></tr>
+    <tr><td>Fail LED turns on</td><td>DUT failed automated check.</td><td>Move DUT to fail/rework area. Do not adjust the jig unless multiple known-good DUTs fail.</td></tr>
+    <tr><td>Jig resets or LEDs restart during insertion/removal</td><td>Possible power dip or relay/contact chatter.</td><td>Report to engineering or maintenance.</td></tr>
+    <tr><td>Serial output is not visible</td><td>Serial terminal not open or USB not connected.</td><td>No action required for normal testing.</td></tr>
+  </table>
+
+  <h2>8. Serial Output</h2>
+  <p>The serial terminal is optional. It is intended for engineering debug and high-level test checks only. General testers should use the LEDs and buzzer as the official operating indication.</p>
+  <div class="passbox">
+    <strong>Normal use:</strong> Fit DUT, clamp DUT, press TEST, observe Pass or Fail LED.
+  </div>
+
+  <p class="small">Document generated from STR-MON Test Jig firmware release 0.7.0. Update this guide if LED meanings, test order, clamp design, or operator workflow changes.</p>
+</body>
+</html>
